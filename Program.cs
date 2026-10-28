@@ -1,143 +1,56 @@
-using System.Drawing.Drawing2D;
-using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace TlkColor;
 
 static class Program
 {
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
-        var id = Gamma.Build(0, 1, 1, 1, 1, 1); // defaults must give a linear ramp
-        System.Diagnostics.Debug.Assert(id[0] == 0 && id[255] == 65535 && id[256 + 128] == 128 * 65535 / 255);
-        ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm());
-    }
-}
+        var id = Ramp.Build(new Settings()); // defaults must give a linear ramp
+        Debug.Assert(id[0] == 0 && id[255] == 65535 && id[256 + 128] == (ushort)Math.Round(128 / 255.0 * 65535));
+        Debug.Assert(Ramp.Gains(6500).All(g => Math.Abs(g - 1) < 1e-9) && Ramp.Gains(1900)[2] < Ramp.Gains(1900)[0]);
 
-static class Gamma
-{
-    [DllImport("gdi32.dll")] static extern IntPtr CreateDC(string driver, string device, string? output, IntPtr init);
-    [DllImport("gdi32.dll")] static extern bool DeleteDC(IntPtr hdc);
-    [DllImport("gdi32.dll")] static extern bool SetDeviceGammaRamp(IntPtr hdc, ushort[] ramp);
+        if (args.Contains("--selftest")) { SelfTest(); return; }
 
-    // brightness -1..1, contrast 0..2, gamma 0.3..3; channel gains 0..1 (color temperature-ish)
-    public static ushort[] Build(double brightness, double contrast, double gamma, double r, double g, double b)
-    {
-        var ramp = new ushort[3 * 256];
-        double[] gains = [r, g, b];
-        for (int c = 0; c < 3; c++)
-            for (int i = 0; i < 256; i++)
-            {
-                double v = Math.Pow(i / 255.0, 1.0 / gamma);
-                v = ((v - 0.5) * contrast + 0.5 + brightness) * gains[c];
-                ramp[c * 256 + i] = (ushort)(Math.Clamp(v, 0, 1) * 65535);
-            }
-        return ramp;
-    }
-
-    // Returns false if any monitor rejected the ramp (Windows refuses ramps that deviate too far from linear).
-    public static bool Apply(ushort[] ramp)
-    {
-        bool ok = true;
-        foreach (var s in Screen.AllScreens)
+        using var mutex = new Mutex(true, "tlk-color-instance", out bool first);
+        if (!first)
         {
-            var dc = CreateDC(s.DeviceName, s.DeviceName, null, IntPtr.Zero);
-            ok &= dc != IntPtr.Zero && SetDeviceGammaRamp(dc, ramp);
-            DeleteDC(dc);
+            try { EventWaitHandle.OpenExisting("tlk-color-show").Set(); }
+            catch (WaitHandleCannotBeOpenedException) { }
+            return;
         }
-        return ok;
-    }
-}
+        using var show = new EventWaitHandle(false, EventResetMode.AutoReset, "tlk-color-show");
 
-class Slider : Control
-{
-    public required string Label;
-    public int Min, Max, Default, Value;
-    public event Action? ValueChanged;
-
-    public Slider()
-    {
-        DoubleBuffered = true;
-        Height = 26;
-        Cursor = Cursors.Hand;
+        ApplicationConfiguration.Initialize();
+        var form = new MainForm(args.Contains("--tray"));
+        ThreadPool.RegisterWaitForSingleObject(show, (_, _) => { if (form.IsHandleCreated) form.BeginInvoke(form.ShowMain); }, null, -1, false);
+        Application.Run(form);
     }
 
-    public void Set(int v)
+    // Applies test values on the real hardware, reads them back, then restores linear ramps and the original vibrance.
+    static void SelfTest()
     {
-        v = Math.Clamp(v, Min, Max);
-        if (v == Value) return;
-        Value = v;
-        Invalidate();
-        ValueChanged?.Invoke();
-    }
-
-    void SetFromX(int x) => Set(Min + (int)Math.Round((Max - Min) * Math.Clamp(x / (double)Width, 0, 1)));
-
-    protected override void OnMouseDown(MouseEventArgs e) { if (e.Button == MouseButtons.Left) SetFromX(e.X); }
-    protected override void OnMouseMove(MouseEventArgs e) { if (e.Button == MouseButtons.Left) SetFromX(e.X); }
-    protected override void OnMouseDoubleClick(MouseEventArgs e) => Set(Default);
-
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        var g = e.Graphics;
-        g.Clear(Color.FromArgb(0x2a, 0x2a, 0x2a));
-        int fill = (int)(Width * (Value - Min) / (double)(Max - Min));
-        using (var b = new SolidBrush(Color.FromArgb(0x55, 0x4a, 0x10))) g.FillRectangle(b, 0, 0, fill, Height);
-        using (var b = new SolidBrush(Color.FromArgb(0xFF, 0xD6, 0x00))) g.FillRectangle(b, Math.Max(fill - 3, 0), 0, 3, Height);
-        var flags = TextFormatFlags.VerticalCenter;
-        TextRenderer.DrawText(g, Label, Font, new Rectangle(8, 0, Width - 16, Height), Color.Gainsboro, flags | TextFormatFlags.Left);
-        TextRenderer.DrawText(g, Value.ToString(), Font, new Rectangle(8, 0, Width - 16, Height), Color.White, flags | TextFormatFlags.Right);
-    }
-}
-
-class MainForm : Form
-{
-    readonly Slider bright, contrast, gamma, red, green, blue;
-    readonly Label status = new() { Dock = DockStyle.Bottom, Height = 22, ForeColor = Color.Gray, TextAlign = ContentAlignment.MiddleLeft };
-
-    public MainForm()
-    {
-        Text = "tlk-color";
-        BackColor = Color.FromArgb(0x1a, 0x1a, 0x1a);
-        ForeColor = Color.Gainsboro;
-        Font = new Font("Segoe UI", 9f);
-        FormBorderStyle = FormBorderStyle.FixedSingle;
-        MaximizeBox = false;
-        ClientSize = new Size(320, 270);
-
-        bright = Add("Parlaklık", -50, 50, 0);
-        contrast = Add("Kontrast", 50, 150, 100);
-        gamma = Add("Gama", 50, 250, 100);
-        red = Add("Kırmızı", 50, 100, 100);
-        green = Add("Yeşil", 50, 100, 100);
-        blue = Add("Mavi", 50, 100, 100);
-
-        var reset = new Button
+        Nv.Refresh();
+        foreach (var sc in Screen.AllScreens)
         {
-            Text = "Sıfırla", Location = new Point(12, 12 + 6 * 34), Size = new Size(ClientSize.Width - 24, 30), FlatStyle = FlatStyle.Flat,
-            BackColor = Color.FromArgb(0x2a, 0x2a, 0x2a), ForeColor = Color.FromArgb(0xFF, 0xD6, 0x00),
-        };
-        reset.FlatAppearance.BorderColor = Color.FromArgb(0xFF, 0xD6, 0x00);
-        reset.Click += (_, _) => { foreach (var s in Controls.OfType<Slider>()) s.Set(s.Default); };
-        Controls.Add(reset);
-        Controls.Add(status);
-        status.Text = "Çift tık: değeri sıfırla";
-    }
+            var dev = sc.DeviceName;
+            var ramp = Ramp.Build(new Settings { Gamma = [150, 150, 150], Kelvin = 5000 });
+            var set = Ramp.Apply(dev, ramp);
+            var back = Ramp.Read(dev);
+            int diff = back == null ? -1 : ramp.Zip(back, (a, b) => Math.Abs(a - b)).Max();
+            var warm = Ramp.Apply(dev, Ramp.Build(new Settings { Kelvin = 1900 }));
+            var warmBack = Ramp.Read(dev);
+            Console.WriteLine($"{dev} 1900K blue[255] applied={warmBack?[3 * 256 - 1]} (linear=65535)");
+            Ramp.Apply(dev, Ramp.Build(new Settings()));
+            Console.WriteLine($"{dev} gamma set={set} readback maxdiff={diff} 1900K={warm}");
 
-    Slider Add(string label, int min, int max, int def)
-    {
-        int y = 12 + Controls.OfType<Slider>().Count() * 34;
-        var s = new Slider { Label = label, Min = min, Max = max, Default = def, Value = def, Location = new Point(12, y), Width = ClientSize.Width - 24 };
-        s.ValueChanged += ApplyAll;
-        Controls.Add(s);
-        return s;
-    }
-
-    void ApplyAll()
-    {
-        var ramp = Gamma.Build(bright.Value / 100.0, contrast.Value / 100.0, gamma.Value / 100.0,
-                               red.Value / 100.0, green.Value / 100.0, blue.Value / 100.0);
-        status.Text = Gamma.Apply(ramp) ? "Uygulandı" : "Windows bu değeri reddetti (çok uç)";
+            if (!Nv.HasVibrance(dev)) { Console.WriteLine($"{dev} nvidia: none"); continue; }
+            var before = Nv.Level(dev);
+            bool vib = Nv.SetVibrance(dev, 80);
+            var during = Nv.Level(dev);
+            if (before is int lvl) Nv.SetLevel(dev, lvl);
+            Console.WriteLine($"{dev} vibrance before={before} set80={vib} during={during} restored={Nv.Level(dev)} hue={Nv.HasHue(dev)}");
+        }
     }
 }

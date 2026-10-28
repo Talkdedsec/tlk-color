@@ -1,9 +1,26 @@
 # DEVAM
 
-NVIDIA renk ayarı benzeri basit ekran rengi aracı (C# WinForms, .NET 9).
+NVIDIA renk ayarı benzeri ekran rengi aracı (C# WinForms, .NET 9, bağımlılık yok).
 
-- `SetDeviceGammaRamp` ile tüm monitörlere parlaklık / kontrast / gama / R-G-B kazancı uygular.
-- Ayar kaydedilmez; gamma rampası uygulama kapansa da kalır, çözünürlük/sürücü değişince sıfırlanır.
-- Windows uç rampaları reddeder (durum satırında görünür).
+## Dosyalar
+- `Native.cs` — gama rampası (`Ramp`), NVIDIA NVAPI canlılık/ton (`Nv`), DWM koyu başlık, kısayol, otomatik başlatma (`Win`).
+- `Config.cs` — ayarlar/profiller, `%AppData%\tlk-color\config.json` (yaz-taşı ile atomik kayıt, açılışta doğrulama).
+- `Controls.cs` — elle çizilmiş koyu tema kontrolleri + `Anim` (tek zamanlayıcılı üstel yumuşatma, Windows animasyon ayarına uyar).
+- `MainForm.cs` — düzen ve davranış. `Program.cs` — tek örnek, `--tray`, `--selftest`.
 
-Yapılmadı: dijital titreşim (NVAPI gerekir), ayar kaydı, açılışta otomatik uygulama, tepsi simgesi.
+## Özellikler
+- Ekran başına ayar (veya tümü), kanal başına (Tümü/R/G/B) parlaklık-kontrast-gama, renk sıcaklığı 1900–10000 K.
+- NVIDIA'ya bağlı ekranlarda dijital canlılık ve ton (NVAPI, `nvapi64.dll` sürücüyle gelir). Laptop iç ekranı Intel'e bağlıysa devre dışı görünür.
+- Önce/Sonra: buton basılı / Boşluk basılı / Ctrl+Alt+B kilit. Gerçek ekranda doğrusal rampa + varsayılan canlılık uygular.
+- Profiller, Ctrl+Alt+1…9 ile uygulanır; Ctrl+Alt+0 sıfırla; Ctrl+Alt+C aç/kapa.
+- Tepsi menüsü, Windows ile başlat (`--tray`), ekran/oturum/uyku değişiminde yeniden uygulama.
+- Windows uç rampaları reddederse, kabul edilen en güçlü ara değeri uygular ("etki kısıldı"); "Geniş gama aralığı" butonu HKLM `GdiIcmGammaRange=256` yazar (UAC).
+
+## Doğrulama
+- `tlk-color.exe --selftest` — her ekranda rampa yaz/geri oku, 1900 K kısma, NVIDIA canlılık yaz/geri al. Çıktı stdout.
+- 2026-10-28: iki ekranda rampa birebir; DISPLAY5'te (NVIDIA) canlılık 50→80→50 çalıştı.
+
+## Bilinen sınırlar
+- Gama rampası tüm monitöre uygulanır; aynı ekranda yan yana önce/sonra mümkün değil, bu yüzden basılı-tut yöntemi var.
+- Bazı tam ekran oyunlar rampayı sıfırlar; şu an periyodik yeniden uygulama yok.
+- NVAPI fonksiyon kimlikleri sürücüden sorgulanır; desteklenmezse sessizce devre dışı kalır.
