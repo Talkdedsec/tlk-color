@@ -189,6 +189,10 @@ static class Nv
         return false;
     }
 
+    public static string Describe(string dev) =>
+        handles.TryGetValue(dev, out var h) && Range(h, out int min, out int max, out int def, out bool ex)
+            ? $"min={min} max={max} default={def} ex={ex}" : "n/a";
+
     // percent: 0..100 with 50 = driver default, like the NVIDIA control panel.
     public static bool SetVibrance(string dev, int percent)
     {

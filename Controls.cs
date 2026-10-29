@@ -417,6 +417,7 @@ class Slider : DarkControl
 class Segmented : DarkControl
 {
     public string[] Items = [];
+    public bool Dots = true;
     public event Action? SelectedChanged;
     readonly Anim pillA;
     int selected, hot = -1;
@@ -464,11 +465,11 @@ class Segmented : DarkControl
             var r = new RectangleF(pad + i * w, pad, w, Height - 2 * pad);
             double near = 1 - Math.Min(Math.Abs(pillA.Value - i), 1);
             var size = TextRenderer.MeasureText(Items[i], Font);
-            float dot = Theme.P(3.5f), total = 2 * dot + Theme.P(8) + size.Width, x = r.X + (r.Width - total) / 2;
+            float dot = Dots ? Theme.P(3.5f) : 0, gap = Dots ? Theme.P(8) : 0, total = 2 * dot + gap + size.Width, x = r.X + (r.Width - total) / 2;
             var col = Theme.Channel[Math.Min(i, Theme.Channel.Length - 1)];
-            Theme.Dot(g, Theme.Mix(Color.FromArgb(110, col), col, near), x + dot, r.Y + r.Height / 2, dot);
+            if (Dots) Theme.Dot(g, Theme.Mix(Color.FromArgb(110, col), col, near), x + dot, r.Y + r.Height / 2, dot);
             var fg = Theme.Mix(i == hot ? Theme.Text2 : Theme.Dim, Theme.Text, near);
-            TextRenderer.DrawText(g, Items[i], Font, new Point((int)(x + 2 * dot + Theme.P(8)), (int)(r.Y + (r.Height - size.Height) / 2)), fg, TextFormatFlags.NoPrefix);
+            TextRenderer.DrawText(g, Items[i], Font, new Point((int)(x + 2 * dot + gap), (int)(r.Y + (r.Height - size.Height) / 2)), fg, TextFormatFlags.NoPrefix);
         }
     }
 }
@@ -830,6 +831,117 @@ class StatusLine : DarkControl
         Theme.Dot(g, Color.FromArgb((int)(70 * pulseA.Value), dot), cx, cy, Theme.P(3.5f) + (float)pulseA.Value * Theme.P(4));
         Theme.Dot(g, dot, cx, cy, Theme.P(3.5f));
         TextRenderer.DrawText(g, Text, Font, new Rectangle(Width - tw, 0, tw, Height), Theme.Text2, AlignRight | TextFormatFlags.EndEllipsis);
+    }
+}
+
+// Monitors drawn in their real desktop arrangement; click one to select it.
+class MonitorMap : DarkControl
+{
+    public List<(string Dev, Rectangle Bounds, bool Primary, string Label)> Items = new();
+    public string Selected = "";
+    public event Action<string>? MonitorClicked;
+    int hot = -1;
+
+    public MonitorMap() => Cursor = Cursors.Hand;
+
+    List<RectangleF> Rects()
+    {
+        var res = new List<RectangleF>();
+        if (Items.Count == 0) return res;
+        var all = Items.Select(i => i.Bounds).Aggregate(Rectangle.Union);
+        var area = RectangleF.FromLTRB(Theme.P(24), Theme.P(44), Width - Theme.P(24), Height - Theme.P(20));
+        float s = Math.Min(area.Width / all.Width, area.Height / all.Height);
+        float ox = area.X + (area.Width - all.Width * s) / 2, oy = area.Y + (area.Height - all.Height * s) / 2;
+        float gap = Theme.P(4);
+        foreach (var i in Items)
+            res.Add(new RectangleF(ox + (i.Bounds.X - all.X) * s + gap, oy + (i.Bounds.Y - all.Y) * s + gap, i.Bounds.Width * s - 2 * gap, i.Bounds.Height * s - 2 * gap));
+        return res;
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        int i = Rects().FindIndex(r => r.Contains(e.Location));
+        if (i != hot) { hot = i; Invalidate(); }
+        base.OnMouseMove(e);
+    }
+
+    protected override void OnMouseLeave(EventArgs e) { hot = -1; base.OnMouseLeave(e); }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        int i = Rects().FindIndex(r => r.Contains(e.Location));
+        if (i >= 0 && e.Button == MouseButtons.Left) MonitorClicked?.Invoke(Items[i].Dev);
+        base.OnMouseDown(e);
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = Begin(e);
+        var card = new RectangleF(0, 0, Width, Height);
+        Theme.Fill(g, Theme.Surface, card, Theme.P(14));
+        Theme.Stroke(g, Theme.Line, card, Theme.P(14));
+        Theme.Tracked(g, "YERLEŞİM", Theme.Caption, Theme.Dim, Theme.P(16), Theme.P(14), Theme.P(1.6f));
+
+        var rects = Rects();
+        using var big = Theme.DisplayLight(22f);
+        using var small = Theme.Body(8.5f);
+        for (int i = 0; i < rects.Count; i++)
+        {
+            var r = rects[i];
+            bool sel = Items[i].Dev.Equals(Selected, StringComparison.OrdinalIgnoreCase);
+            Theme.Fill(g, sel ? Theme.Hover : i == hot ? Theme.Ctl : Theme.Bg, r, Theme.P(8));
+            Theme.Stroke(g, sel ? Theme.Accent : Theme.Line, r, Theme.P(8), sel ? Theme.P(2) : 1);
+            var num = (i + 1).ToString();
+            var ns = TextRenderer.MeasureText(num, big);
+            var ls = TextRenderer.MeasureText(Items[i].Label, small);
+            float top = r.Y + (r.Height - ns.Height - ls.Height) / 2;
+            TextRenderer.DrawText(g, num, big, new Rectangle((int)r.X, (int)top, (int)r.Width, ns.Height), sel ? Theme.Accent : Theme.Text2, AlignCenter);
+            TextRenderer.DrawText(g, Items[i].Label, small, new Rectangle((int)r.X, (int)top + ns.Height, (int)r.Width, ls.Height), Theme.Dim, AlignCenter);
+            if (Items[i].Primary) Theme.Dot(g, Theme.Accent, r.Right - Theme.P(12), r.Y + Theme.P(12), Theme.P(3));
+        }
+    }
+}
+
+// Windows-style "keep these display settings?" with an auto-revert countdown.
+static class ConfirmBox
+{
+    public static bool Keep(IWin32Window owner, string change, int seconds = 15)
+    {
+        static int P(float v) => Theme.P(v);
+        using var f = new Form
+        {
+            Text = "Görüntü ayarı", FormBorderStyle = FormBorderStyle.FixedDialog, MinimizeBox = false, MaximizeBox = false,
+            ShowInTaskbar = false, StartPosition = FormStartPosition.CenterParent, BackColor = Theme.Bg, ForeColor = Theme.Text,
+            Font = Theme.Body(10f), ClientSize = new Size(P(400), P(214)), Icon = Theme.MakeIcon(16), TopMost = true,
+        };
+        int left = seconds;
+        var view = new Panel { Bounds = new Rectangle(0, 0, f.ClientSize.Width, P(140)), BackColor = Theme.Bg };
+        view.Paint += (_, e) =>
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            Theme.Tracked(g, "BU AYAR KORUNSUN MU?", Theme.Caption, Theme.Dim, P(24), P(24), P(1.6f));
+            using var big = Theme.DisplayLight(26f);
+            TextRenderer.DrawText(g, change, big, new Point(P(22), P(46)), Theme.Text, TextFormatFlags.NoPrefix);
+            using var small = Theme.Body(9f);
+            TextRenderer.DrawText(g, $"{left} sn içinde onaylanmazsa eski ayara dönülür.", small, new Point(P(24), P(100)), Theme.Text2, TextFormatFlags.NoPrefix);
+            // countdown bar
+            float w = view.Width - P(48);
+            Theme.Fill(g, Theme.Ctl, new RectangleF(P(24), P(126), w, P(3)), P(1.5f));
+            Theme.Fill(g, Theme.Accent, new RectangleF(P(24), P(126), w * left / seconds, P(3)), P(1.5f));
+        };
+        var keep = new FlatButton { Text = "Koru", Primary = true, Bounds = new Rectangle(P(278), P(156), P(100), P(38)) };
+        var revert = new FlatButton { Text = "Geri al", Ghost = true, Bounds = new Rectangle(P(168), P(156), P(100), P(38)) };
+        keep.Click += (_, _) => f.DialogResult = DialogResult.OK;
+        revert.Click += (_, _) => f.DialogResult = DialogResult.Cancel;
+        using var timer = new System.Windows.Forms.Timer { Interval = 1000 };
+        timer.Tick += (_, _) => { if (--left <= 0) f.DialogResult = DialogResult.Cancel; else view.Invalidate(); };
+        f.Controls.AddRange([view, keep, revert]);
+        f.HandleCreated += (_, _) => Win.DarkTitle(f.Handle);
+        f.Shown += (_, _) => { timer.Start(); revert.Focus(); };
+        f.KeyPreview = true;
+        f.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) f.DialogResult = DialogResult.Cancel; };
+        return f.ShowDialog(owner) == DialogResult.OK;
     }
 }
 
