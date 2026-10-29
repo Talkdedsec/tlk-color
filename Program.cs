@@ -46,10 +46,42 @@ static class Program
         }
         finally { Console.WriteLine($"{dev} restore code={Display.Restore(dev, prev)} now={Display.CurrentMode(dev)}"); }
 
+        foreach (var d in Screen.AllScreens.Select(x => x.DeviceName)) ScalingTest(d);
+
+        Nv.Refresh();
+        var nv = Screen.AllScreens.Select(x => x.DeviceName).FirstOrDefault(Nv.CanCustom);
+        if (nv != null)
+        {
+            int r = Nv.TryCustom(nv, 1776, 1000, 60);
+            try { Console.WriteLine($"{nv} custom 1776x1000 try={r} now={Display.CurrentMode(nv)}"); Thread.Sleep(1500); }
+            finally { if (r == 0) Console.WriteLine($"{nv} custom revert ok={Nv.RevertCustom(nv)} now={Display.CurrentMode(nv)}"); }
+        }
+
         if (Display.Scale(dev) is not { } s) { Console.WriteLine("scale n/a"); return; }
         int other = s.Allowed.First(v => v != s.Current);
         try { Console.WriteLine($"{dev} scale {s.Current}->{other} ok={Display.SetScale(dev, other)} now={Display.Scale(dev)?.Current}"); }
         finally { Console.WriteLine($"{dev} scale restore ok={Display.SetScale(dev, s.Current)} now={Display.Scale(dev)?.Current}"); }
+    }
+
+    // Scaling only matters on a non-native mode, so switch to 4:3, try each mode, then restore.
+    static void ScalingTest(string dev)
+    {
+        int scaling = Display.Scaling(dev);
+        var four3 = Display.Modes(dev).FirstOrDefault(m => m.Width * 3 == m.Height * 4 && m.Width >= 1024);
+        if (four3 == null || Display.Current(dev) is not { } before43) return;
+        try
+        {
+            Console.WriteLine($"{dev} native scaled={Display.IsScaled(dev)}");
+            Console.WriteLine($"{dev} 4:3 {four3} code={Display.Apply(dev, four3, 0)} scaling={Display.Scaling(dev)} scaled={Display.IsScaled(dev)}");
+            foreach (var v in new[] { 3, 4, 2 })
+                Console.WriteLine($"{dev} scaling ->{v} ok={Display.SetScaling(dev, v)} now={Display.Scaling(dev)}");
+            Thread.Sleep(800);
+        }
+        finally
+        {
+            Display.SetScaling(dev, scaling);
+            Console.WriteLine($"{dev} 4:3 restore code={Display.Restore(dev, before43)} now={Display.CurrentMode(dev)} scaling={Display.Scaling(dev)}");
+        }
     }
 
     // Applies test values on the real hardware, reads them back, then restores linear ramps and the original vibrance.
@@ -74,6 +106,8 @@ static class Program
             var scale = Display.Scale(dev);
             Console.WriteLine($"{dev} mode={Display.CurrentMode(dev)} orient={Display.Orientation(dev)} modes={modes.Count} top={string.Join(" ", modes.Take(3))}");
             Console.WriteLine($"{dev} scale={(scale == null ? "n/a" : $"{scale.Current}% rec={scale.Recommended}% allowed={string.Join(",", scale.Allowed)}")} bounds={sc.Bounds}");
+            Console.WriteLine($"{dev} 4:3 listed={string.Join(" ", modes.Where(m => m.Width * 3 == m.Height * 4).Select(m => $"{m.Width}x{m.Height}@{m.Hz}"))}");
+            Console.WriteLine($"{dev} scaling={Display.Scaling(dev)} custom={Nv.CanCustom(dev)} layoutOk={Nv.LayoutOk} timing1776x1000@60: {Nv.ProbeTiming(dev, 1776, 1000, 60)}");
 
             if (!Nv.HasVibrance(dev)) { Console.WriteLine($"{dev} nvidia: none"); continue; }
             Console.WriteLine($"{dev} vibrance range {Nv.Describe(dev)}");

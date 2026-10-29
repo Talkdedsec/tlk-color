@@ -56,16 +56,29 @@ static class Display
 
     public static int Orientation(string dev) => Current(dev)?.dmDisplayOrientation ?? 0;
 
-    // 0 = success. Tests first so a bad mode never reaches the screen.
-    public static int Apply(string dev, Mode mode, int orientation)
+    static DEVMODE? For(string dev, Mode mode, int orientation)
     {
-        if (Current(dev) is not { } dm) return -1;
+        if (Current(dev) is not { } dm) return null;
         bool portrait = orientation % 2 == 1;
         dm.dmPelsWidth = portrait ? mode.Height : mode.Width;
         dm.dmPelsHeight = portrait ? mode.Width : mode.Height;
         dm.dmDisplayFrequency = mode.Hz;
         dm.dmDisplayOrientation = orientation;
         dm.dmFields = DmWidth | DmHeight | DmFrequency | DmOrientation;
+        return dm;
+    }
+
+    // Asks the driver without touching the screen; 0 = it would accept the mode.
+    public static int Test(string dev, Mode mode, int orientation)
+    {
+        if (For(dev, mode, orientation) is not { } dm) return -1;
+        return ChangeDisplaySettingsEx(dev, ref dm, IntPtr.Zero, CdsTest, IntPtr.Zero);
+    }
+
+    // 0 = success. Tests first so a bad mode never reaches the screen.
+    public static int Apply(string dev, Mode mode, int orientation)
+    {
+        if (For(dev, mode, orientation) is not { } dm) return -1;
         int test = ChangeDisplaySettingsEx(dev, ref dm, IntPtr.Zero, CdsTest, IntPtr.Zero);
         return test != 0 ? test : ChangeDisplaySettingsEx(dev, ref dm, IntPtr.Zero, CdsUpdateRegistry, IntPtr.Zero);
     }
@@ -92,25 +105,67 @@ static class Display
         return p;
     }
 
-    // Maps a GDI name (\\.\DISPLAY1) to its DisplayConfig source (adapter LUID + source id).
-    static (uint Low, int High, uint Id)? Source(string dev)
+    [DllImport("user32.dll")] static extern int SetDisplayConfig(uint numPaths, byte[] paths, uint numModes, byte[] modes, uint flags);
+
+    // DISPLAYCONFIG_PATH_INFO is 72 bytes: source (LUID, id, ...) then target; target.scaling sits at offset 44.
+    const int PathSize = 72, ModeSize = 64, ScalingOffset = 44;
+
+    record Topology(byte[] Paths, uint PathCount, byte[] Modes, uint ModeCount);
+
+    // Virtual-mode-aware (Win10+) so scaling round-trips; without it Windows resets scaling to identity on apply.
+    const uint QdcOnlyActive = 2, QdcVirtualModeAware = 0x10;
+
+    static Topology? Query()
     {
-        const uint OnlyActive = 2;
-        const int PathSize = 72, ModeSize = 64;
-        if (GetDisplayConfigBufferSizes(OnlyActive, out uint np, out uint nm) != 0) return null;
+        const uint flags = QdcOnlyActive | QdcVirtualModeAware;
+        if (GetDisplayConfigBufferSizes(flags, out uint np, out uint nm) != 0) return null;
         var paths = new byte[np * PathSize];
         var modes = new byte[nm * ModeSize];
-        if (QueryDisplayConfig(OnlyActive, ref np, paths, ref nm, modes, IntPtr.Zero) != 0) return null;
-        for (int i = 0; i < np; i++)
+        return QueryDisplayConfig(flags, ref np, paths, ref nm, modes, IntPtr.Zero) == 0 ? new Topology(paths, np, modes, nm) : null;
+    }
+
+    static (uint Low, int High, uint Id) SourceAt(byte[] paths, int i) =>
+        (BitConverter.ToUInt32(paths, i * PathSize), BitConverter.ToInt32(paths, i * PathSize + 4), BitConverter.ToUInt32(paths, i * PathSize + 8));
+
+    // Maps a GDI name (\\.\DISPLAY1) to its active path index.
+    static int PathOf(Topology t, string dev)
+    {
+        for (int i = 0; i < t.PathCount; i++)
         {
-            int o = i * PathSize;
-            var src = (BitConverter.ToUInt32(paths, o), BitConverter.ToInt32(paths, o + 4), BitConverter.ToUInt32(paths, o + 8));
-            var name = Packet(1, 84, src); // DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME
+            var name = Packet(1, 84, SourceAt(t.Paths, i)); // DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME
             if (DisplayConfigGetDeviceInfo(name) != 0) continue;
             var gdi = System.Text.Encoding.Unicode.GetString(name, 20, 64).TrimEnd('\0');
-            if (gdi.Equals(dev, StringComparison.OrdinalIgnoreCase)) return src;
+            if (gdi.Equals(dev, StringComparison.OrdinalIgnoreCase)) return i;
         }
-        return null;
+        return -1;
+    }
+
+    static (uint Low, int High, uint Id)? Source(string dev) =>
+        Query() is { } t && PathOf(t, dev) is var i && i >= 0 ? SourceAt(t.Paths, i) : null;
+
+    // DISPLAYCONFIG_SCALING: 1 identity, 2 centered, 3 stretched, 4 aspect-ratio (black bars), 128 preferred.
+    public static int Scaling(string dev) =>
+        Query() is { } t && PathOf(t, dev) is var i && i >= 0 ? BitConverter.ToInt32(t.Paths, i * PathSize + ScalingOffset) : 0;
+
+    // True when the desktop size differs from the signal sent to the panel, i.e. a fit mode actually applies.
+    // Virtual-mode-aware paths pack the mode index in the high 16 bits of source/target modeInfoIdx.
+    public static bool IsScaled(string dev)
+    {
+        if (Query() is not { } t || PathOf(t, dev) is var i && i < 0) return false;
+        int o = i * PathSize;
+        uint src = BitConverter.ToUInt32(t.Paths, o + 12) >> 16, tgt = BitConverter.ToUInt32(t.Paths, o + 32) >> 16;
+        if (src >= t.ModeCount || tgt >= t.ModeCount) return false;
+        int sw = BitConverter.ToInt32(t.Modes, (int)src * ModeSize + 16), sh = BitConverter.ToInt32(t.Modes, (int)src * ModeSize + 20);
+        int tw = BitConverter.ToInt32(t.Modes, (int)tgt * ModeSize + 40), th = BitConverter.ToInt32(t.Modes, (int)tgt * ModeSize + 44);
+        return (Math.Max(sw, sh), Math.Min(sw, sh)) != (Math.Max(tw, th), Math.Min(tw, th));
+    }
+
+    public static bool SetScaling(string dev, int scaling)
+    {
+        if (Query() is not { } t || PathOf(t, dev) is var i && i < 0) return false;
+        BitConverter.GetBytes(scaling).CopyTo(t.Paths, i * PathSize + ScalingOffset);
+        const uint Apply = 0x80, UseSupplied = 0x20, Save = 0x200, AllowChanges = 0x400, VirtualModeAware = 0x8000;
+        return SetDisplayConfig(t.PathCount, t.Paths, t.ModeCount, t.Modes, Apply | UseSupplied | Save | AllowChanges | VirtualModeAware) == 0;
     }
 
     public static ScaleInfo? Scale(string dev)

@@ -834,6 +834,64 @@ class StatusLine : DarkControl
     }
 }
 
+// Digits-only field in the house style; ValueChanged fires only for user edits.
+class NumberBox : DarkControl
+{
+    public string Suffix = "";
+    public event Action? ValueChanged;
+    readonly TextBox box;
+    bool silent;
+
+    public NumberBox()
+    {
+        Height = Theme.P(40);
+        Cursor = Cursors.IBeam;
+        box = new TextBox
+        {
+            BorderStyle = BorderStyle.None, BackColor = Theme.Surface, ForeColor = Theme.Text, Font = Theme.Mono(10.5f),
+            MaxLength = 5, TextAlign = HorizontalAlignment.Center,
+        };
+        box.KeyPress += (_, e) => e.Handled = !char.IsDigit(e.KeyChar) && !char.IsControl(e.KeyChar);
+        box.TextChanged += (_, _) => { if (!silent) ValueChanged?.Invoke(); };
+        box.GotFocus += (_, _) => Invalidate();
+        box.LostFocus += (_, _) => Invalidate();
+        box.MouseEnter += (_, _) => hoverA.To(1);
+        box.MouseLeave += (_, _) => hoverA.To(0);
+        Controls.Add(box);
+    }
+
+    public int Value => int.TryParse(box.Text, out int v) ? v : 0;
+    public bool Editing => box.Focused;
+
+    public void SetSilent(int v)
+    {
+        silent = true;
+        box.Text = v > 0 ? v.ToString() : "";
+        silent = false;
+    }
+
+    protected override void OnClick(EventArgs e) { box.Focus(); base.OnClick(e); }
+
+    protected override void OnLayout(LayoutEventArgs e)
+    {
+        // The base constructor sets Font, which lays out before our TextBox exists.
+        if (box is null) { base.OnLayout(e); return; }
+        int sw = Suffix == "" ? 0 : TextRenderer.MeasureText(Suffix, Font).Width + Theme.P(6);
+        int h = box.PreferredHeight;
+        box.Bounds = new Rectangle(Theme.P(8), (Height - h) / 2, Width - Theme.P(16) - sw, h);
+        base.OnLayout(e);
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = Begin(e);
+        var r = new RectangleF(0, 0, Width, Height);
+        Theme.Fill(g, Theme.Surface, r, Theme.P(10));
+        Theme.Stroke(g, box.Focused ? Theme.Accent : Theme.Mix(Theme.Line, Theme.Hover, hoverA.Value), r, Theme.P(10), box.Focused ? Theme.P(1.5f) : 1);
+        if (Suffix != "") TextRenderer.DrawText(g, Suffix, Font, new Rectangle(0, 0, Width - Theme.P(10), Height), Theme.Dim, AlignRight);
+    }
+}
+
 // Monitors drawn in their real desktop arrangement; click one to select it.
 class MonitorMap : DarkControl
 {
@@ -921,8 +979,12 @@ static class ConfirmBox
             var g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             Theme.Tracked(g, "BU AYAR KORUNSUN MU?", Theme.Caption, Theme.Dim, P(24), P(24), P(1.6f));
-            using var big = Theme.DisplayLight(26f);
-            TextRenderer.DrawText(g, change, big, new Point(P(22), P(46)), Theme.Text, TextFormatFlags.NoPrefix);
+            // Shrink until the mode text fits the dialog.
+            float pt = 26f;
+            var big = Theme.DisplayLight(pt);
+            while (pt > 12f && TextRenderer.MeasureText(change, big).Width > view.Width - P(44)) { big.Dispose(); big = Theme.DisplayLight(pt -= 2f); }
+            TextRenderer.DrawText(g, change, big, new Rectangle(P(22), P(44), view.Width - P(44), P(50)), Theme.Text, TextFormatFlags.NoPrefix | TextFormatFlags.VerticalCenter);
+            big.Dispose();
             using var small = Theme.Body(9f);
             TextRenderer.DrawText(g, $"{left} sn içinde onaylanmazsa eski ayara dönülür.", small, new Point(P(24), P(100)), Theme.Text2, TextFormatFlags.NoPrefix);
             // countdown bar

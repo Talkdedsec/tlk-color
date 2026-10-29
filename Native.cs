@@ -109,9 +109,37 @@ static class Nv
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate int HueFn(IntPtr handle, uint output, ref HueInfo info);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate int SetFn(IntPtr handle, uint output, int value);
 
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate int IdByNameFn([MarshalAs(UnmanagedType.LPStr)] string name, out uint id);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate int TimingFn(uint id, ref TimingInput input, out Timing timing);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate int TryFn(ref uint ids, uint count, ref CustomDisplay display);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate int RevertFn(ref uint ids, uint count);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate int SaveFn(ref uint ids, uint count, uint outputOnly, uint monitorOnly);
+
     [StructLayout(LayoutKind.Sequential)] struct DvcEx { public uint Version; public int Current, Min, Max, Default; }
     [StructLayout(LayoutKind.Sequential)] struct Dvc { public uint Version; public int Current, Min, Max; }
     [StructLayout(LayoutKind.Sequential)] struct HueInfo { public uint Version; public int Current, Default; }
+
+    // Mirrors nvapi.h: NV_TIMING_INPUT (flag = 3 NvU32 bitfield units), NV_TIMING with NV_TIMINGEXT inlined, NV_CUSTOM_DISPLAY.
+    [StructLayout(LayoutKind.Sequential)] struct TimingInput { public uint Version, Width, Height; public float Rr; public uint Flag0, Flag1, Flag2; public int Type; }
+    [StructLayout(LayoutKind.Sequential)]
+    struct Timing
+    {
+        public ushort HVisible, HBorder, HFrontPorch, HSyncWidth, HTotal; public byte HSyncPol;
+        public ushort VVisible, VBorder, VFrontPorch, VSyncWidth, VTotal; public byte VSyncPol;
+        public ushort Interlaced; public uint Pclk;
+        public uint EtcFlag; public ushort EtcRr; public uint EtcRrx1k, EtcAspect; public ushort EtcRep; public uint EtcStatus;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 40)] public byte[] EtcName;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    struct CustomDisplay
+    {
+        public uint Version, Width, Height, Depth; public int ColorFormat;
+        public float SrcX, SrcY, SrcW, SrcH, XRatio, YRatio;
+        public Timing Timing; public uint HwModeSetOnly;
+    }
+
+    // Sizes must match the C structs or the driver rejects the version stamp.
+    public static bool LayoutOk => Marshal.SizeOf<TimingInput>() == 32 && Marshal.SizeOf<Timing>() == 96 && Marshal.SizeOf<CustomDisplay>() == 144;
 
     static bool loaded;
     static EnumFn? enumDisplays;
@@ -120,6 +148,11 @@ static class Nv
     static DvcFn? getDvc;
     static SetFn? setDvc, setHue;
     static HueFn? getHue;
+    static IdByNameFn? idByName;
+    static TimingFn? getTiming;
+    static TryFn? tryCustom;
+    static RevertFn? revertCustom;
+    static SaveFn? saveCustom;
     static readonly Dictionary<string, IntPtr> handles = new(StringComparer.OrdinalIgnoreCase);
     static readonly HashSet<string> vibrance = new(StringComparer.OrdinalIgnoreCase), hue = new(StringComparer.OrdinalIgnoreCase);
 
@@ -152,6 +185,12 @@ static class Nv
                 setDvc = Fn<SetFn>(0x172409B4);
                 getHue = Fn<HueFn>(0x95B64341);
                 setHue = Fn<SetFn>(0xF5A0F22C);
+                // IDs from NVIDIA/nvapi nvapi_interface.h
+                idByName = Fn<IdByNameFn>(0xAE457190);
+                getTiming = Fn<TimingFn>(0x175167E9);
+                tryCustom = Fn<TryFn>(0x1F7DB630);
+                revertCustom = Fn<RevertFn>(0xCBBD40F0);
+                saveCustom = Fn<SaveFn>(0x49882876);
                 loaded = true;
             }
             if (enumDisplays == null || displayName == null) return;
@@ -219,6 +258,43 @@ static class Nv
         var info = new DvcEx { Version = Ver<DvcEx>(), Current = level, Min = min, Max = max, Default = def };
         return setDvcEx!(h, 0, ref info) == 0;
     }
+
+    public static bool CanCustom(string dev) =>
+        handles.ContainsKey(dev) && LayoutOk && idByName != null && getTiming != null && tryCustom != null && revertCustom != null && saveCustom != null;
+
+    static bool Id(string dev, out uint id)
+    {
+        id = 0;
+        return idByName != null && idByName(dev, out id) == 0;
+    }
+
+    // Driver-computed timing for a mode; NVAPI requires the AUTO override (1).
+    static int GetTiming(string dev, int w, int h, int hz, out uint id, out Timing timing)
+    {
+        timing = default;
+        if (!CanCustom(dev) || !Id(dev, out id)) { id = 0; return -1; }
+        var input = new TimingInput { Version = Ver<TimingInput>(), Width = (uint)w, Height = (uint)h, Rr = hz, Type = 1 };
+        return getTiming!(id, ref input, out timing);
+    }
+
+    public static string ProbeTiming(string dev, int w, int h, int hz) =>
+        GetTiming(dev, w, h, hz, out _, out var t) is var r && r == 0 ? $"ok htotal={t.HTotal} vtotal={t.VTotal} pclk={t.Pclk}" : $"status={r}";
+
+    // Puts the mode on screen as a trial; follow with KeepCustom or RevertCustom. 0 = trial active.
+    public static int TryCustom(string dev, int w, int h, int hz)
+    {
+        int r = GetTiming(dev, w, h, hz, out uint id, out var timing);
+        if (r != 0) return r;
+        var cd = new CustomDisplay
+        {
+            Version = Ver<CustomDisplay>(), Width = (uint)w, Height = (uint)h, Depth = 32,
+            SrcW = 1, SrcH = 1, XRatio = 1, YRatio = 1, Timing = timing,
+        };
+        return tryCustom!(ref id, 1, ref cd);
+    }
+
+    public static bool KeepCustom(string dev) => Id(dev, out uint id) && saveCustom!(ref id, 1, 1, 1) == 0;
+    public static bool RevertCustom(string dev) => Id(dev, out uint id) && revertCustom!(ref id, 1) == 0;
 
     public static bool SetHue(string dev, int angle) =>
         handles.TryGetValue(dev, out var h) && setHue != null && setHue(h, 0, angle) == 0;

@@ -43,8 +43,13 @@ class MainForm : Form
     List<Display.Mode> modes = new();
     Display.Mode? pendMode;
     Display.ScaleInfo? scaleInfo;
-    int pendOrient, pendScale = 100;
+    int pendOrient, pendScale = 100, pendFit, curFit;
+    readonly NumberBox customW, customH, customHz;
+    readonly Segmented fitSeg;
     static readonly string[] Orientations = ["Yatay", "Dikey", "Ters yatay", "Ters dikey"];
+    // DISPLAYCONFIG_SCALING values behind each fit option.
+    static readonly string[] FitNames = ["Oranı koru", "Tam ekran", "Ortala", "Monitör"];
+    static readonly int[] FitValues = [4, 3, 2, 1];
 
     public MainForm(bool hidden)
     {
@@ -173,18 +178,50 @@ class MainForm : Form
         Page(colorPage, beforeBtn, resetBtn);
 
         // ── Display page ────────────────────────────────────────
-        map = new MonitorMap { Bounds = new Rectangle(mx, P(124), mw, P(220)) };
+        map = new MonitorMap { Bounds = new Rectangle(mx, P(124), mw, P(150)) };
         map.MonitorClicked += SelectTarget;
         tip.SetToolTip(map, "Ayarlamak istediğin ekrana tıkla");
         int d2 = mx + col + P(32);
-        resBtn = new FlatButton { Dropdown = true, Bounds = new Rectangle(mx, P(396), col, P(40)) };
+        resBtn = new FlatButton { Dropdown = true, Bounds = new Rectangle(mx, P(318), col, P(40)) };
         resBtn.Click += (_, _) => ShowModeMenu(true);
-        hzBtn = new FlatButton { Dropdown = true, Bounds = new Rectangle(mx, P(482), col, P(40)) };
+        hzBtn = new FlatButton { Dropdown = true, Bounds = new Rectangle(mx, P(400), col, P(40)) };
         hzBtn.Click += (_, _) => ShowModeMenu(false);
-        scaleSeg = new Segmented { Dots = false, Bounds = new Rectangle(d2, P(396), col, P(40)) };
+        scaleSeg = new Segmented { Dots = false, Bounds = new Rectangle(d2, P(318), col, P(40)) };
         scaleSeg.SelectedChanged += () => { if (scaleInfo != null) pendScale = scaleInfo.Allowed[scaleSeg.Selected]; UpdateDisplayUi(); };
-        orientSeg = new Segmented { Items = Orientations, Dots = false, Bounds = new Rectangle(d2, P(482), col, P(40)) };
+        orientSeg = new Segmented { Items = Orientations, Dots = false, Bounds = new Rectangle(d2, P(400), col, P(40)) };
         orientSeg.SelectedChanged += () => { pendOrient = orientSeg.Selected; UpdateDisplayUi(); };
+
+        // Custom resolution: W × H @ Hz, plus one-click stretched 4:3 presets.
+        int bw = P(96), sep = P(24);
+        customW = new NumberBox { Bounds = new Rectangle(mx, P(482), bw, P(40)) };
+        customH = new NumberBox { Bounds = new Rectangle(mx + bw + sep, P(482), bw, P(40)) };
+        customHz = new NumberBox { Suffix = "Hz", Bounds = new Rectangle(mx + 2 * (bw + sep), P(482), col - 2 * (bw + sep), P(40)) };
+        foreach (var b in new[] { customW, customH, customHz }) b.ValueChanged += OnCustomChanged;
+        var times = new Label { Text = "×", ForeColor = Theme.Dim, Font = Theme.Body(11f), TextAlign = ContentAlignment.MiddleCenter, Bounds = new Rectangle(mx + bw, P(482), sep, P(40)) };
+        var at = new Label { Text = "@", ForeColor = Theme.Dim, Font = Theme.Body(10f), TextAlign = ContentAlignment.MiddleCenter, Bounds = new Rectangle(mx + 2 * bw + sep, P(482), sep, P(40)) };
+        tip.SetToolTip(customW, "Genişlik (piksel)");
+        tip.SetToolTip(customH, "Yükseklik (piksel)");
+        var presets = new List<Control>();
+        (int W, int H)[] four3 = [(1440, 1080), (1280, 960), (1024, 768)];
+        int pw = (col - 2 * P(8)) / 3;
+        for (int i = 0; i < four3.Length; i++)
+        {
+            var (w, h) = four3[i];
+            var chip = new FlatButton { Text = $"{w}×{h}", Ghost = true, Font = Theme.Mono(8.5f), Bounds = new Rectangle(mx + i * (pw + P(8)), P(534), pw, P(32)) };
+            chip.Click += (_, _) => UsePreset(w, h);
+            tip.SetToolTip(chip, $"4:3 · {w}×{h} · sığdırma: Tam ekran (kenarlar siyah olmaz)");
+            presets.Add(chip);
+        }
+
+        // Fit mode, like NVIDIA's "Adjust desktop size and position".
+        fitSeg = new Segmented { Items = FitNames, Dots = false, Bounds = new Rectangle(d2, P(482), col, P(40)) };
+        fitSeg.SelectedChanged += () => { pendFit = FitValues[fitSeg.Selected]; UpdateDisplayUi(); };
+        tip.SetToolTip(fitSeg, "Oranı koru: siyah kenar · Tam ekran: görüntüyü uzatır · Ortala: ölçeklemez · Monitör: ekranın kendisi karar verir");
+        var fitHint = new Label
+        {
+            Text = "Doğal çözünürlükten farklı modlarda geçerli. 4:3'te kenarlar siyah kalmasın istiyorsan: Tam ekran.",
+            ForeColor = Theme.Dim, Font = Theme.Body(8.5f), Bounds = new Rectangle(d2, P(532), col, P(36)),
+        };
         applyBtn = new FlatButton { Primary = true, Text = "Uygula", Bounds = new Rectangle(mx, fy, P(250), P(44)) };
         applyBtn.Click += (_, _) => ApplyDisplay();
         var undoBtn = new FlatButton { Text = "Vazgeç", Ghost = true, Bounds = new Rectangle(mx + P(262), fy, P(110), P(44)) };
@@ -192,15 +229,18 @@ class MainForm : Form
         tip.SetToolTip(undoBtn, "Uygulanmamış seçimleri bırak");
         var note = new Label
         {
-            Text = "Çözünürlük, yenileme hızı ve yön 15 sn içinde onaylanmazsa geri alınır. Ölçek hemen uygulanır.",
-            ForeColor = Theme.Dim, Font = Theme.Body(8.5f), Bounds = new Rectangle(mx, P(560), mw, P(20)),
+            Text = "Çözünürlük, yenileme hızı, yön ve özel çözünürlük 15 sn içinde onaylanmazsa geri alınır.",
+            ForeColor = Theme.Faint, Font = Theme.Body(8.5f), Bounds = new Rectangle(mx, P(590), mw, P(20)),
         };
         Page(displayPage, map,
-            new Caption("ÇÖZÜNÜRLÜK", true) { Bounds = new Rectangle(mx, P(370), col, P(18)) },
-            new Caption("YENİLEME HIZI", true) { Bounds = new Rectangle(mx, P(456), col, P(18)) },
-            new Caption("ÖLÇEK", true) { Bounds = new Rectangle(d2, P(370), col, P(18)) },
-            new Caption("YÖN", true) { Bounds = new Rectangle(d2, P(456), col, P(18)) },
-            resBtn, hzBtn, scaleSeg, orientSeg, note, applyBtn, undoBtn);
+            new Caption("ÇÖZÜNÜRLÜK", true) { Bounds = new Rectangle(mx, P(296), col, P(18)) },
+            new Caption("YENİLEME HIZI", true) { Bounds = new Rectangle(mx, P(378), col, P(18)) },
+            new Caption("ÖZEL ÇÖZÜNÜRLÜK", true) { Bounds = new Rectangle(mx, P(460), col, P(18)) },
+            new Caption("ÖLÇEK", true) { Bounds = new Rectangle(d2, P(296), col, P(18)) },
+            new Caption("YÖN", true) { Bounds = new Rectangle(d2, P(378), col, P(18)) },
+            new Caption("SIĞDIRMA", true) { Bounds = new Rectangle(d2, P(460), col, P(18)) },
+            resBtn, hzBtn, scaleSeg, orientSeg, customW, times, customH, at, customHz, fitSeg, fitHint, note, applyBtn, undoBtn);
+        Page(displayPage, presets.ToArray());
         foreach (var c in displayPage) c.Visible = false;
 
         tray = new NotifyIcon { Icon = Theme.MakeIcon(16), Text = "tlk-color", Visible = true, ContextMenuStrip = Theme.Menu() };
@@ -249,6 +289,8 @@ class MainForm : Form
         SuspendLayout();
         foreach (var c in colorPage) c.Visible = p == 0;
         foreach (var c in displayPage) c.Visible = p == 1;
+        // The channel switch only exists on the color page; elsewhere the readout gets the full width.
+        readout.Width = (p == 1 ? seg.Right : seg.Left - Theme.P(24)) - readout.Left;
         ResumeLayout();
         if (p == 1) LoadDisplay();
         else readout.Show("EKRAN", monitorBtn.Text);
@@ -282,19 +324,58 @@ class MainForm : Form
         scaleSeg.Enabled = scaleInfo != null;
         scaleSeg.Invalidate();
         orientSeg.Selected = pendOrient;
+        curFit = pendFit = Display.Scaling(dev);
+        fitSeg.Selected = Math.Max(Array.IndexOf(FitValues, curFit), 0);
         UpdateDisplayUi();
     }
+
+    bool IsCustom(Display.Mode m) => !modes.Contains(m);
+
+    // Accept only sane sizes from the custom boxes (trust boundary: typed input goes to the driver).
+    static bool ValidCustom(Display.Mode m) => m.Width is >= 640 and <= 7680 && m.Height is >= 480 and <= 4320 && m.Hz is >= 24 and <= 500;
 
     void UpdateDisplayUi()
     {
         var dev = DisplayDev;
-        resBtn.Text = pendMode is { } m ? $"{m.Width} × {m.Height}" : "Bilinmiyor";
-        hzBtn.Text = pendMode is { } h ? $"{h.Hz} Hz" : "—";
+        if (pendMode is { } m)
+        {
+            resBtn.Text = $"{m.Width} × {m.Height}" + (IsCustom(m) ? "  ·  özel" : "");
+            hzBtn.Text = $"{m.Hz} Hz";
+            // Mirror the pending mode into the custom boxes unless the user is typing there.
+            if (!customW.Editing && !customH.Editing && !customHz.Editing)
+            {
+                customW.SetSilent(m.Width);
+                customH.SetSilent(m.Height);
+                customHz.SetSilent(m.Hz);
+            }
+        }
+        bool valid = pendMode is { } v && (!IsCustom(v) || ValidCustom(v));
         bool modeChanged = pendMode != Display.CurrentMode(dev) || pendOrient != Display.Orientation(dev);
         bool scaleChanged = scaleInfo != null && pendScale != scaleInfo.Current;
-        applyBtn.Enabled = pendMode != null && (modeChanged || scaleChanged);
+        applyBtn.Enabled = valid && (modeChanged || scaleChanged || pendFit != curFit);
         int idx = Array.FindIndex(Screen.AllScreens, s => s.DeviceName == dev);
-        if (pendMode is { } p) readout.Show($"EKRAN {idx + 1}", $"{p.Width}×{p.Height}", $"{p.Hz} Hz · {pendScale}%");
+        if (pendMode is { } p)
+            readout.Show($"EKRAN {idx + 1}", $"{p.Width}×{p.Height}", $"{p.Hz} Hz · {pendScale}% · {FitNames[Math.Max(Array.IndexOf(FitValues, pendFit), 0)]}");
+        if (!valid) status.Set("Sınır: 640×480–7680×4320, 24–500 Hz", Theme.Warn);
+    }
+
+    void OnCustomChanged()
+    {
+        pendMode = new Display.Mode(customW.Value, customH.Value, customHz.Value);
+        UpdateDisplayUi();
+    }
+
+    // Stretched 4:3: the competitive-shooter setup, no black bars.
+    void UsePreset(int w, int h)
+    {
+        int hz = pendMode?.Hz ?? 60;
+        // Prefer the current refresh rate if the panel lists it at this size, otherwise its fastest.
+        pendMode = modes.FirstOrDefault(m => m.Width == w && m.Height == h && m.Hz == hz)
+            ?? modes.FirstOrDefault(m => m.Width == w && m.Height == h)
+            ?? new Display.Mode(w, h, hz);
+        pendFit = 3;
+        fitSeg.Selected = Array.IndexOf(FitValues, 3);
+        UpdateDisplayUi();
     }
 
     void ShowModeMenu(bool resolution)
@@ -325,29 +406,66 @@ class MainForm : Form
 
     void ApplyDisplay()
     {
-        if (pendMode is not { } mode) return;
+        if (pendMode is not { } mode || (IsCustom(mode) && !ValidCustom(mode))) return;
         var dev = DisplayDev;
+        string label = $"{mode.Width} × {mode.Height}  ·  {mode.Hz} Hz";
         bool modeChanged = mode != Display.CurrentMode(dev) || pendOrient != Display.Orientation(dev);
+        string? fitWarning = null;
+
         if (modeChanged && Display.Current(dev) is { } previous)
         {
-            int r = Display.Apply(dev, mode, pendOrient);
-            if (r == 1) status.Set("Yeniden başlatınca geçerli olacak", Theme.Warn);
-            else if (r != 0) { status.Set($"Ekran bu modu kabul etmedi ({r})", Theme.Danger); LoadDisplay(); return; }
-            else if (!ConfirmBox.Keep(this, $"{mode.Width} × {mode.Height}  ·  {mode.Hz} Hz"))
+            if (Display.Test(dev, mode, pendOrient) == 0)
             {
-                Display.Restore(dev, previous);
-                status.Set("Eski görüntü ayarına dönüldü", Theme.Text2);
-                LoadDisplay();
+                int r = Display.Apply(dev, mode, pendOrient);
+                if (r != 0) { Fail($"Ekran bu modu kabul etmedi ({r})"); return; }
+                // Fit is stored per mode, so set it now — the user should judge the new mode with the chosen fit.
+                fitWarning = ApplyFit(dev);
+                if (!ConfirmBox.Keep(this, label))
+                {
+                    Display.Restore(dev, previous);
+                    Fail("Eski görüntü ayarına dönüldü", Theme.Text2);
+                    return;
+                }
+            }
+            else if (Nv.CanCustom(dev))
+            {
+                int r = Nv.TryCustom(dev, mode.Width, mode.Height, mode.Hz);
+                if (r != 0) { Fail($"NVIDIA bu özel çözünürlüğü reddetti ({r})"); return; }
+                if (!ConfirmBox.Keep(this, label + "  ·  özel"))
+                {
+                    Nv.RevertCustom(dev);
+                    Fail("Özel çözünürlük geri alındı", Theme.Text2);
+                    return;
+                }
+                if (!Nv.KeepCustom(dev)) { Fail("Özel çözünürlük kaydedilemedi"); return; }
+                fitWarning = ApplyFit(dev);
+            }
+            else
+            {
+                Fail("Özel çözünürlük yalnızca NVIDIA ekranda");
                 return;
             }
         }
-        if (scaleInfo != null && pendScale != scaleInfo.Current && !Display.SetScale(dev, pendScale))
-        {
-            status.Set("Ölçek değiştirilemedi", Theme.Danger);
-            LoadDisplay();
-            return;
-        }
-        status.Set("Görüntü ayarı uygulandı", Theme.Channel[2]);
+        else if (pendFit != curFit) fitWarning = ApplyFit(dev);
+
+        if (scaleInfo != null && pendScale != scaleInfo.Current && !Display.SetScale(dev, pendScale)) { Fail("Ölçek değiştirilemedi"); return; }
+        if (fitWarning != null) status.Set(fitWarning, Theme.Warn);
+        else status.Set("Görüntü ayarı uygulandı", Theme.Channel[2]);
+        LoadDisplay();
+    }
+
+    // Returns a warning when the driver ignores the requested fit (e.g. Intel panels have no "centered").
+    string? ApplyFit(string dev)
+    {
+        if (Display.Scaling(dev) == pendFit) return null;
+        Display.SetScaling(dev, pendFit);
+        // At native resolution Windows drops the fit (nothing to scale); only a scaled mode that ignores it is a real refusal.
+        return Display.Scaling(dev) == pendFit || !Display.IsScaled(dev) ? null : $"Ekran \"{FitNames[Array.IndexOf(FitValues, pendFit)]}\" desteklemiyor";
+    }
+
+    void Fail(string message, Color? color = null)
+    {
+        status.Set(message, color ?? Theme.Danger);
         LoadDisplay();
     }
 
@@ -424,6 +542,8 @@ class MainForm : Form
             var r = ApplyDevice(sc.DeviceName);
             if (r > worst) worst = r;
         }
+        // On the display page the status line belongs to display changes; only color errors may interrupt it.
+        if (page == 1 && worst == Ramp.Result.Ok) return;
         if (worst == Ramp.Result.Failed) status.Set("Ekran gama ayarını kabul etmedi", Theme.Danger);
         else if (worst == Ramp.Result.Limited) status.Set("Windows sınırı: etki kısıldı", Theme.Warn);
         else if (!hotkeysOk) status.Set("Bazı kısayollar başka programda", Theme.Warn);
