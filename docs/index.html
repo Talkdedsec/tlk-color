@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tlk-color — Screen color &amp; display tuner for Windows</title>
+<meta name="description" content="Free Windows tool to tune screen color and display modes: brightness, contrast, gamma, color temperature, vibrance, resolution and refresh rate, with profiles and hotkeys. One small exe.">
+<meta name="theme-color" content="#131313">
+<link rel="canonical" href="https://talkdedsec.github.io/tlk-color/">
+<link rel="icon" href="assets/favicon.ico">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="tlk-color">
+<meta property="og:title" content="tlk-color — Screen color &amp; display tuner for Windows">
+<meta property="og:description" content="An NVIDIA-Control-Panel-style tuner in one small exe: brightness, contrast, gamma, temperature, vibrance, resolution, refresh rate, profiles and hotkeys.">
+<meta property="og:url" content="https://talkdedsec.github.io/tlk-color/">
+<meta property="og:image" content="https://talkdedsec.github.io/tlk-color/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="tlk-color — screen color and display tuner for Windows">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="tlk-color — Screen color &amp; display tuner for Windows">
+<meta name="twitter:description" content="An NVIDIA-Control-Panel-style tuner in one small exe: brightness, contrast, gamma, temperature, vibrance, resolution, refresh rate, profiles and hotkeys.">
+<meta name="twitter:image" content="https://talkdedsec.github.io/tlk-color/assets/og.png">
+<style>
+:root{
+  --bg:#131313;--panel:#1c1c1c;--panel2:#232323;--line:#2e2e2e;
+  --text:#e6e6e6;--muted:#a3a3a3;--accent:#FFD600;--on-accent:#141414;
+  --font:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:"Cascadia Mono","Cascadia Code",Consolas,"SFMono-Regular",Menlo,monospace;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 var(--font);overflow-x:hidden}
+img{max-width:100%;height:auto;display:block}
+a{color:var(--accent)}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+.skip{position:absolute;left:-9999px;top:8px;background:var(--accent);color:var(--on-accent);padding:8px 12px;border-radius:6px;z-index:10}
+.skip:focus{left:8px}
+kbd,.mono{font-family:var(--mono)}
+kbd{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 7px;font-size:.88em;white-space:nowrap;color:var(--text)}
+.eyebrow{font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 10px}
+
+/* header */
+header.top{position:sticky;top:0;z-index:5;background:rgba(19,19,19,.92);border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+.top .wrap{display:flex;align-items:center;gap:16px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-weight:600;font-size:1.1rem}
+.brand img{width:30px;height:30px}
+.top nav{display:flex;gap:18px;margin-left:auto}
+.top nav a{color:var(--muted);text-decoration:none;font-size:.95rem}
+.top nav a:hover{color:var(--text)}
+.lang{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.lang button{all:unset;cursor:pointer;padding:4px 10px;font:600 .8rem var(--font);color:var(--muted)}
+.lang button[aria-pressed="true"]{background:var(--panel2);color:var(--accent)}
+.lang button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 20px;border-radius:8px;font:600 1rem var(--font);text-decoration:none;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--text)}
+.btn:hover{background:var(--panel2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{background:#ffe14d}
+.btn.sm{min-height:34px;padding:5px 12px;font-size:.88rem}
+
+/* hero */
+.hero{padding:56px 0 64px;border-bottom:1px solid var(--line)}
+.hero .wrap{display:grid;grid-template-columns:1fr;gap:40px;align-items:center}
+@media (min-width:920px){.hero .wrap{grid-template-columns:1fr 1.05fr}}
+.hero-logo{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.hero-logo img{width:64px;height:64px}
+.hero-logo span{font-size:1.9rem;font-weight:600}
+.hero h1{font-size:clamp(1.9rem,4.6vw,3rem);line-height:1.15;font-weight:300;margin:0 0 16px;letter-spacing:-.01em}
+.hero h1 b{font-weight:600;color:var(--accent)}
+.hero p.pitch{color:var(--muted);font-size:1.1rem;margin:0 0 28px;max-width:34em}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.meta{color:var(--muted);font-size:.85rem;margin:0}
+
+/* demo */
+.demo{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.demo-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.demo-head h2{font-size:1rem;margin:0;font-weight:600}
+.demo-head p{margin:0;color:var(--muted);font-size:.82rem}
+.scene{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:#000}
+.scene svg{display:block;width:100%;height:auto}
+.badge{position:absolute;top:8px;left:8px;background:var(--accent);color:var(--on-accent);font:700 .75rem var(--font);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:5px;visibility:hidden}
+.demo.before .badge{visibility:visible}
+.sliders{display:grid;gap:10px;margin:16px 0}
+.row{display:grid;grid-template-columns:7.5em 1fr 4.6em;align-items:center;gap:12px}
+.row label{font-size:.9rem}
+.row output{font-family:var(--mono);font-size:.85rem;text-align:right;color:var(--accent)}
+input[type=range]{width:100%;margin:0;height:28px;background:transparent;-webkit-appearance:none;appearance:none;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:var(--line);border-radius:2px}
+input[type=range]::-moz-range-track{height:4px;background:var(--line);border-radius:2px}
+input[type=range]::-moz-range-progress{height:4px;background:var(--accent);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;margin-top:-6px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
+input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.demo-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.demo-actions .hint{color:var(--muted);font-size:.82rem;flex:1 1 12em}
+#before{touch-action:none;user-select:none;-webkit-user-select:none}
+.demo.before #before{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+@media (max-width:420px){.row{grid-template-columns:1fr 4.6em}.row input{grid-column:1/-1;grid-row:2}}
+
+/* sections */
+section.block{padding:64px 0;border-bottom:1px solid var(--line)}
+section.block h2{font-size:clamp(1.5rem,3vw,2rem);font-weight:300;margin:0 0 28px}
+.cards{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px}
+.card h3{margin:0 0 12px;font-size:1.1rem;display:flex;align-items:center;gap:10px}
+.card h3::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.card ul{margin:0;padding-left:1.1em;color:var(--muted)}
+.card li{margin:6px 0}
+.card li::marker{color:var(--line)}
+.shots{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
+figure{margin:0}
+figure img{border:1px solid var(--line);border-radius:10px;background:var(--panel);aspect-ratio:1056/743;width:100%}
+figcaption{color:var(--muted);font-size:.9rem;margin-top:10px}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:12px 18px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+th{font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td:first-child{white-space:nowrap;width:1%}
+.two{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
+ol.steps{margin:0;padding-left:1.3em;color:var(--muted)}
+ol.steps li{margin:8px 0}
+ol.steps li::marker{color:var(--accent);font-family:var(--mono)}
+.limits{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.limits li{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:14px 18px;color:var(--muted)}
+footer{padding:36px 0 48px;color:var(--muted);font-size:.9rem}
+footer .wrap{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:center}
+footer .brand{font-size:1rem}
+footer nav{display:flex;flex-wrap:wrap;gap:8px 20px}
+footer a{color:var(--muted)}
+footer a:hover{color:var(--text)}
+@media (max-width:720px){.top nav{display:none}.lang{margin-left:auto}.top .btn{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main" data-i18n="skip">Skip to content</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="tlk-color"><img src="assets/logo-white.png" alt="" width="30" height="30">tlk-color</a>
+    <nav data-i18n-aria="navLabel" aria-label="Main">
+      <a href="#features" data-i18n="navFeatures">Features</a>
+      <a href="#hotkeys" data-i18n="navHotkeys">Hotkeys</a>
+      <a href="#install" data-i18n="navInstall">Install</a>
+    </nav>
+    <div class="lang" role="group" data-i18n-aria="langLabel" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true" lang="en">EN</button>
+      <button type="button" data-lang="tr" aria-pressed="false" lang="tr">TR</button>
+    </div>
+    <a class="btn primary sm" href="https://github.com/Talkdedsec/tlk-color/releases/latest/download/tlk-color.exe" data-i18n="navDownload">Download</a>
+  </div>
+</header>
+
+<main id="main">
+<section class="hero" id="top">
+  <div class="wrap">
+    <div>
+      <div class="hero-logo"><img src="assets/logo-white.png" alt="Talkdedsec" width="64" height="64"><span>tlk-color</span></div>
+      <p class="eyebrow" data-i18n="heroEyebrow">Free Windows tool</p>
+      <h1><span data-i18n="heroTitleA">Tune your screen's</span> <b data-i18n="heroTitleB">color and display modes.</b></h1>
+      <p class="pitch" data-i18n="heroPitch">An NVIDIA-Control-Panel-style tuner in one small exe: brightness, contrast, gamma, color temperature, vibrance, resolution and refresh rate, with profiles and hotkeys.</p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/Talkdedsec/tlk-color/releases/latest/download/tlk-color.exe">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 20h16"/></svg>
+          <span data-i18n="heroDownload">Download tlk-color.exe</span></a>
+        <a class="btn" href="https://github.com/Talkdedsec/tlk-color">
+          <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          <span data-i18n="heroSource">Source on GitHub</span></a>
+      </div>
+      <p class="meta mono">Windows 10/11 x64 · .NET 9 · MIT · EN / TR</p>
+    </div>
+
+    <div class="demo" id="demo">
+      <div class="demo-head">
+        <h2 data-i18n="demoTitle">Try it here</h2>
+        <p data-i18n="demoNote">A browser preview. The app does this to your whole screen.</p>
+      </div>
+      <div class="scene">
+        <svg viewBox="0 0 480 260" role="img" data-i18n-aria="demoScene" aria-label="Test pattern: color bars, a hue gradient and a grayscale ramp">
+          <defs>
+            <filter id="tune" color-interpolation-filters="sRGB" x="0" y="0" width="100%" height="100%">
+              <feComponentTransfer>
+                <feFuncR id="fR" type="identity"/>
+                <feFuncG id="fG" type="identity"/>
+                <feFuncB id="fB" type="identity"/>
+              </feComponentTransfer>
+            </filter>
+            <linearGradient id="hue">
+              <stop offset="0" stop-color="#f00"/><stop offset=".167" stop-color="#ff0"/><stop offset=".333" stop-color="#0f0"/>
+              <stop offset=".5" stop-color="#0ff"/><stop offset=".667" stop-color="#00f"/><stop offset=".833" stop-color="#f0f"/><stop offset="1" stop-color="#f00"/>
+            </linearGradient>
+            <linearGradient id="gray"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#fff"/></linearGradient>
+            <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d4e89"/><stop offset=".6" stop-color="#f29e4c"/><stop offset="1" stop-color="#f6d8ae"/></linearGradient>
+          </defs>
+          <g id="sceneG" filter="url(#tune)">
+            <rect width="480" height="260" fill="#000"/>
+            <rect x="0" width="60" height="120" fill="#fff"/><rect x="60" width="60" height="120" fill="#ff0"/>
+            <rect x="120" width="60" height="120" fill="#0ff"/><rect x="180" width="60" height="120" fill="#0f0"/>
+            <rect x="240" width="60" height="120" fill="#f0f"/><rect x="300" width="60" height="120" fill="#f00"/>
+            <rect x="360" width="60" height="120" fill="#00f"/><rect x="420" width="60" height="120" fill="#000"/>
+            <rect y="120" width="300" height="80" fill="url(#sky)"/>
+            <circle cx="215" cy="178" r="20" fill="#ffe9a8"/>
+            <path d="M0 200 L60 160 L110 185 L170 150 L240 190 L300 170 L300 200 Z" fill="#2c2a3a"/>
+            <g id="steps"></g>
+            <rect y="200" width="480" height="30" fill="url(#hue)"/>
+            <rect y="230" width="480" height="30" fill="url(#gray)"/>
+          </g>
+        </svg>
+        <span class="badge" aria-hidden="true" data-i18n="demoBefore">Before</span>
+      </div>
+
+      <div class="sliders">
+        <div class="row"><label for="s-b" data-i18n="demoBrightness">Brightness</label><input id="s-b" type="range" min="-50" max="50" step="1" value="0"><output for="s-b" id="o-b">0</output></div>
+        <div class="row"><label for="s-c" data-i18n="demoContrast">Contrast</label><input id="s-c" type="range" min="50" max="150" step="1" value="100"><output for="s-c" id="o-c">100%</output></div>
+        <div class="row"><label for="s-g" data-i18n="demoGamma">Gamma</label><input id="s-g" type="range" min="0.5" max="2.5" step="0.05" value="1"><output for="s-g" id="o-g">1.00</output></div>
+        <div class="row"><label for="s-t" data-i18n="demoTemp">Temperature</label><input id="s-t" type="range" min="1900" max="10000" step="100" value="6500"><output for="s-t" id="o-t">6500 K</output></div>
+      </div>
+
+      <div class="demo-actions">
+        <button type="button" class="btn sm" id="before" aria-pressed="false" data-i18n="demoBefore">Before</button>
+        <button type="button" class="btn sm" id="reset" data-i18n="demoReset">Reset</button>
+        <span class="hint" data-i18n="demoHint">Hold Before (or Space) to compare.</span>
+      </div>
+      <p class="sr-status" id="demo-status" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="features" aria-labelledby="features-h">
+  <div class="wrap">
+    <p class="eyebrow" data-i18n="featEyebrow">Features</p>
+    <h2 id="features-h" data-i18n="featTitle">Everything in one small window</h2>
+    <div class="cards">
+      <article class="card">
+        <h3 data-i18n="colorH">Color</h3>
+        <ul>
+          <li data-i18n="color1">Brightness, contrast and gamma per display or for all displays, per channel (All / R / G / B).</li>
+          <li data-i18n="color2">Color temperature from 1900 K to 10000 K.</li>
+          <li data-i18n="color3">Digital vibrance and hue on NVIDIA-connected displays.</li>
+          <li data-i18n="color4">Before/After: hold the button or Space to see the unmodified picture; Ctrl+Alt+B locks it.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3 data-i18n="dispH">Display</h3>
+        <ul>
+          <li data-i18n="disp1">Monitor layout map, resolution, refresh rate, scale % and orientation.</li>
+          <li data-i18n="disp2">Custom resolution (W × H @ Hz) and 4:3 presets: 1440×1080, 1280×960, 1024×768.</li>
+          <li data-i18n="disp3">Scaling modes: keep aspect, full screen, center, monitor.</li>
+          <li data-i18n="disp4">Mode changes roll back automatically unless you confirm within 15 seconds.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3 data-i18n="profH">Profiles &amp; hotkeys</h3>
+        <ul>
+          <li data-i18n="prof1">Save profiles and apply them with Ctrl+Alt+1…9.</li>
+          <li data-i18n="prof2">Ctrl+Alt+0 resets, Ctrl+Alt+C toggles on/off.</li>
+          <li data-i18n="prof3">Tray icon and start with Windows.</li>
+          <li data-i18n="prof4">Re-applies your settings after display, session or sleep changes.</li>
+          <li data-i18n="prof5">UI in English and Turkish.</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="screenshots" aria-labelledby="shots-h">
+  <div class="wrap">
+    <h2 id="shots-h" data-i18n="shotsTitle">Screenshots</h2>
+    <div class="shots">
+      <figure>
+        <img class="shot" data-shot="color" src="assets/screenshot-color.png" width="1056" height="743" loading="lazy" data-i18n-alt="shotColorAlt" alt="tlk-color Color page with display picker, profiles and color sliders">
+        <figcaption data-i18n="shotColorCap">Color page</figcaption>
+      </figure>
+      <figure>
+        <img class="shot" data-shot="display" src="assets/screenshot-display.png" width="1056" height="743" loading="lazy" data-i18n-alt="shotDisplayAlt" alt="tlk-color Display page with monitor layout, resolution, refresh rate, scale, orientation, custom resolution and scaling options">
+        <figcaption data-i18n="shotDisplayCap">Display page</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="hotkeys" aria-labelledby="hotkeys-h">
+  <div class="wrap">
+    <h2 id="hotkeys-h" data-i18n="hkTitle">Hotkeys</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col" data-i18n="hkKey">Key</th><th scope="col" data-i18n="hkAction">Action</th></tr></thead>
+        <tbody>
+          <tr><td><kbd data-i18n="hkSpace">Space</kbd></td><td data-i18n="hkSpaceA">Hold in the app to see the unmodified picture</td></tr>
+          <tr><td><kbd>Ctrl+Alt+B</kbd></td><td data-i18n="hkBA">Lock Before/After</td></tr>
+          <tr><td><kbd>Ctrl+Alt+1…9</kbd></td><td data-i18n="hk19A">Apply profile 1–9</td></tr>
+          <tr><td><kbd>Ctrl+Alt+0</kbd></td><td data-i18n="hk0A">Reset</td></tr>
+          <tr><td><kbd>Ctrl+Alt+C</kbd></td><td data-i18n="hkCA">Toggle on/off</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="install" aria-labelledby="install-h">
+  <div class="wrap">
+    <h2 id="install-h" data-i18n="instTitle">Install</h2>
+    <div class="two">
+      <div class="card">
+        <h3 data-i18n="reqH">Requirements</h3>
+        <ul>
+          <li data-i18n="req1">Windows 10 or 11, x64</li>
+          <li>.NET 9 Desktop Runtime</li>
+          <li data-i18n="req3">NVIDIA GPU: only for vibrance, hue and driver-level custom resolutions</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 data-i18n="stepsH">Steps</h3>
+        <ol class="steps">
+          <li><span data-i18n="step1">Install the .NET 9 Desktop Runtime if you don't have it:</span> <a href="https://dotnet.microsoft.com/download/dotnet/9.0">dotnet.microsoft.com</a></li>
+          <li><a href="https://github.com/Talkdedsec/tlk-color/releases/latest/download/tlk-color.exe" data-i18n="step2">Download tlk-color.exe</a></li>
+          <li data-i18n="step3">Run it, pick a display, tune and save a profile.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="limits" aria-labelledby="limits-h">
+  <div class="wrap">
+    <h2 id="limits-h" data-i18n="limTitle">Good to know</h2>
+    <ul class="limits">
+      <li data-i18n="lim1">Gamma applies to the whole monitor, not to a single window.</li>
+      <li data-i18n="lim2">Some fullscreen games reset the gamma.</li>
+      <li data-i18n="lim3">Digital vibrance, hue and driver-level custom resolutions need an NVIDIA GPU.</li>
+    </ul>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="https://talkdedsec.com"><img src="assets/logo-white.png" alt="" width="30" height="30">Talkdedsec</a>
+    <nav data-i18n-aria="footLabel" aria-label="Footer">
+      <a href="https://talkdedsec.com">talkdedsec.com</a>
+      <a href="https://github.com/Talkdedsec/tlk-color">GitHub</a>
+      <a href="https://github.com/Talkdedsec/tlk-color/blob/master/SECURITY.md" data-i18n="footSec">Security policy</a>
+    </nav>
+    <span data-i18n="footLic">MIT License · © Talkdedsec</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var T = {
+    en: {
+      docTitle: "tlk-color — Screen color & display tuner for Windows",
+      docDesc: "Free Windows tool to tune screen color and display modes: brightness, contrast, gamma, color temperature, vibrance, resolution and refresh rate, with profiles and hotkeys. One small exe.",
+      skip: "Skip to content", navLabel: "Main", langLabel: "Language", footLabel: "Footer",
+      navFeatures: "Features", navHotkeys: "Hotkeys", navInstall: "Install", navDownload: "Download",
+      heroEyebrow: "Free Windows tool", heroTitleA: "Tune your screen's", heroTitleB: "color and display modes.",
+      heroPitch: "An NVIDIA-Control-Panel-style tuner in one small exe: brightness, contrast, gamma, color temperature, vibrance, resolution and refresh rate, with profiles and hotkeys.",
+      heroDownload: "Download tlk-color.exe", heroSource: "Source on GitHub",
+      demoTitle: "Try it here", demoNote: "A browser preview. The app does this to your whole screen.",
+      demoScene: "Test pattern: color bars, a sunset, a hue gradient and a grayscale ramp",
+      demoBrightness: "Brightness", demoContrast: "Contrast", demoGamma: "Gamma", demoTemp: "Temperature",
+      demoBefore: "Before", demoReset: "Reset", demoHint: "Hold Before (or Space) to compare.",
+      demoShowingBefore: "Showing the unmodified picture", demoShowingAfter: "Showing your changes",
+      featEyebrow: "Features", featTitle: "Everything in one small window",
+      colorH: "Color",
+      color1: "Brightness, contrast and gamma per display or for all displays, per channel (All / R / G / B).",
+      color2: "Color temperature from 1900 K to 10000 K.",
+      color3: "Digital vibrance and hue on NVIDIA-connected displays.",
+      color4: "Before/After: hold the button or Space to see the unmodified picture; Ctrl+Alt+B locks it.",
+      dispH: "Display",
+      disp1: "Monitor layout map, resolution, refresh rate, scale % and orientation.",
+      disp2: "Custom resolution (W × H @ Hz) and 4:3 presets: 1440×1080, 1280×960, 1024×768.",
+      disp3: "Scaling modes: keep aspect, full screen, center, monitor.",
+      disp4: "Mode changes roll back automatically unless you confirm within 15 seconds.",
+      profH: "Profiles & hotkeys",
+      prof1: "Save profiles and apply them with Ctrl+Alt+1…9.",
+      prof2: "Ctrl+Alt+0 resets, Ctrl+Alt+C toggles on/off.",
+      prof3: "Tray icon and start with Windows.",
+      prof4: "Re-applies your settings after display, session or sleep changes.",
+      prof5: "UI in English and Turkish.",
+      shotsTitle: "Screenshots",
+      shotColorAlt: "tlk-color Color page with display picker, profiles and color sliders",
+      shotColorCap: "Color page",
+      shotDisplayAlt: "tlk-color Display page with monitor layout, resolution, refresh rate, scale, orientation, custom resolution and scaling options",
+      shotDisplayCap: "Display page",
+      hkTitle: "Hotkeys", hkKey: "Key", hkAction: "Action",
+      hkSpace: "Space", hkSpaceA: "Hold in the app to see the unmodified picture",
+      hkBA: "Lock Before/After", hk19A: "Apply profile 1–9", hk0A: "Reset", hkCA: "Toggle on/off",
+      instTitle: "Install", reqH: "Requirements", req1: "Windows 10 or 11, x64",
+      req3: "NVIDIA GPU: only for vibrance, hue and driver-level custom resolutions",
+      stepsH: "Steps", step1: "Install the .NET 9 Desktop Runtime if you don't have it:",
+      step2: "Download tlk-color.exe", step3: "Run it, pick a display, tune and save a profile.",
+      limTitle: "Good to know",
+      lim1: "Gamma applies to the whole monitor, not to a single window.",
+      lim2: "Some fullscreen games reset the gamma.",
+      lim3: "Digital vibrance, hue and driver-level custom resolutions need an NVIDIA GPU.",
+      footSec: "Security policy", footLic: "MIT License · © Talkdedsec"
+    },
+    tr: {
+      docTitle: "tlk-color — Windows için ekran rengi ve görüntü ayarı",
+      docDesc: "Ekran rengini ve görüntü modlarını ayarlayan ücretsiz Windows aracı: parlaklık, kontrast, gama, renk sıcaklığı, canlılık, çözünürlük ve yenileme hızı; profiller ve kısayollarla. Tek küçük exe.",
+      skip: "İçeriğe geç", navLabel: "Ana menü", langLabel: "Dil", footLabel: "Alt bilgi",
+      navFeatures: "Özellikler", navHotkeys: "Kısayollar", navInstall: "Kurulum", navDownload: "İndir",
+      heroEyebrow: "Ücretsiz Windows aracı", heroTitleA: "Ekranının", heroTitleB: "rengini ve görüntü modlarını ayarla.",
+      heroPitch: "Tek küçük exe'de NVIDIA Denetim Masası tarzı ayar aracı: parlaklık, kontrast, gama, renk sıcaklığı, canlılık, çözünürlük ve yenileme hızı; profiller ve kısayollarla.",
+      heroDownload: "tlk-color.exe'yi indir", heroSource: "GitHub'da kaynak kod",
+      demoTitle: "Burada dene", demoNote: "Tarayıcıda bir önizleme. Uygulama bunu tüm ekranına uygular.",
+      demoScene: "Test deseni: renk çubukları, gün batımı, ton geçişi ve gri tonlama rampası",
+      demoBrightness: "Parlaklık", demoContrast: "Kontrast", demoGamma: "Gama", demoTemp: "Sıcaklık",
+      demoBefore: "Önce", demoReset: "Sıfırla", demoHint: "Karşılaştırmak için Önce'yi (ya da Boşluk'u) basılı tut.",
+      demoShowingBefore: "Değiştirilmemiş görüntü gösteriliyor", demoShowingAfter: "Değişikliklerin gösteriliyor",
+      featEyebrow: "Özellikler", featTitle: "Hepsi tek küçük pencerede",
+      colorH: "Renk",
+      color1: "Ekran başına ya da tüm ekranlar için parlaklık, kontrast ve gama; kanal bazında (Tümü / R / G / B).",
+      color2: "1900 K ile 10000 K arası renk sıcaklığı.",
+      color3: "NVIDIA'ya bağlı ekranlarda dijital canlılık ve ton.",
+      color4: "Önce/Sonra: değiştirilmemiş görüntüyü görmek için düğmeyi ya da Boşluk'u basılı tut; Ctrl+Alt+B sabitler.",
+      dispH: "Görüntü",
+      disp1: "Monitör yerleşim haritası, çözünürlük, yenileme hızı, ölçek % ve yön.",
+      disp2: "Özel çözünürlük (G × Y @ Hz) ve 4:3 hazır ayarları: 1440×1080, 1280×960, 1024×768.",
+      disp3: "Sığdırma modları: oranı koru, tam ekran, ortala, monitör.",
+      disp4: "Mod değişiklikleri 15 saniye içinde onaylanmazsa otomatik olarak geri alınır.",
+      profH: "Profiller ve kısayollar",
+      prof1: "Profilleri kaydet, Ctrl+Alt+1…9 ile uygula.",
+      prof2: "Ctrl+Alt+0 sıfırlar, Ctrl+Alt+C açıp kapatır.",
+      prof3: "Tepsi simgesi ve Windows ile başlatma.",
+      prof4: "Ekran, oturum ya da uyku değişikliklerinden sonra ayarlarını yeniden uygular.",
+      prof5: "İngilizce ve Türkçe arayüz.",
+      shotsTitle: "Ekran görüntüleri",
+      shotColorAlt: "tlk-color Renk sayfası: ekran seçici, profiller ve renk kaydırıcıları",
+      shotColorCap: "Renk sayfası",
+      shotDisplayAlt: "tlk-color Görüntü sayfası: monitör yerleşimi, çözünürlük, yenileme hızı, ölçek, yön, özel çözünürlük ve sığdırma seçenekleri",
+      shotDisplayCap: "Görüntü sayfası",
+      hkTitle: "Kısayollar", hkKey: "Tuş", hkAction: "İşlem",
+      hkSpace: "Boşluk", hkSpaceA: "Uygulamada basılı tut: değiştirilmemiş görüntüyü gösterir",
+      hkBA: "Önce/Sonra'yı sabitle", hk19A: "1–9 numaralı profili uygula", hk0A: "Sıfırla", hkCA: "Aç / kapat",
+      instTitle: "Kurulum", reqH: "Gereksinimler", req1: "Windows 10 veya 11, x64",
+      req3: "NVIDIA GPU: yalnızca canlılık, ton ve sürücü düzeyinde özel çözünürlük için",
+      stepsH: "Adımlar", step1: "Yüklü değilse .NET 9 Desktop Runtime'ı kur:",
+      step2: "tlk-color.exe'yi indir", step3: "Çalıştır, ekranı seç, ayarla ve profil olarak kaydet.",
+      limTitle: "Bilmekte fayda var",
+      lim1: "Gama tek bir pencereye değil, tüm monitöre uygulanır.",
+      lim2: "Bazı tam ekran oyunlar gamayı sıfırlar.",
+      lim3: "Dijital canlılık, ton ve sürücü düzeyinde özel çözünürlük NVIDIA GPU gerektirir.",
+      footSec: "Güvenlik politikası", footLic: "MIT Lisansı · © Talkdedsec"
+    }
+  };
+  var lang = "en";
+
+  function setLang(l) {
+    lang = T[l] ? l : "en";
+    var d = T[lang];
+    document.documentElement.lang = lang;
+    document.title = d.docTitle;
+    document.querySelector('meta[name="description"]').setAttribute("content", d.docDesc);
+    document.querySelectorAll("[data-i18n]").forEach(function (el) { el.textContent = d[el.getAttribute("data-i18n")]; });
+    document.querySelectorAll("[data-i18n-alt]").forEach(function (el) { el.alt = d[el.getAttribute("data-i18n-alt")]; });
+    document.querySelectorAll("[data-i18n-aria]").forEach(function (el) { el.setAttribute("aria-label", d[el.getAttribute("data-i18n-aria")]); });
+    document.querySelectorAll(".lang button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.lang === lang)); });
+    document.querySelectorAll("img.shot").forEach(function (img) {
+      img.src = "assets/screenshot-" + img.dataset.shot + (lang === "tr" ? "-tr" : "") + ".png";
+    });
+    try { localStorage.setItem("tlk-color-lang", lang); } catch (e) {}
+  }
+  // TR screenshots may be missing: fall back to the English set.
+  document.querySelectorAll("img.shot").forEach(function (img) {
+    img.addEventListener("error", function () {
+      var en = "assets/screenshot-" + img.dataset.shot + ".png";
+      if (img.getAttribute("src") !== en) img.src = en;
+    });
+  });
+  document.querySelectorAll(".lang button").forEach(function (b) {
+    b.addEventListener("click", function () { setLang(b.dataset.lang); });
+  });
+  var saved = null;
+  try { saved = localStorage.getItem("tlk-color-lang"); } catch (e) {}
+  setLang(saved || (/^tr\b/i.test(navigator.language || "") ? "tr" : "en"));
+
+  /* ---- demo ---- */
+  var steps = document.getElementById("steps");
+  for (var i = 0; i < 6; i++) {
+    var v = Math.round(i / 5 * 255), r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    r.setAttribute("x", 300 + i * 30); r.setAttribute("y", 120); r.setAttribute("width", 30); r.setAttribute("height", 80);
+    r.setAttribute("fill", "rgb(" + v + "," + v + "," + v + ")");
+    steps.appendChild(r);
+  }
+
+  var demo = document.getElementById("demo"), g = document.getElementById("sceneG");
+  var funcs = [document.getElementById("fR"), document.getElementById("fG"), document.getElementById("fB")];
+  var s = { b: document.getElementById("s-b"), c: document.getElementById("s-c"), g: document.getElementById("s-g"), t: document.getElementById("s-t") };
+  var o = { b: document.getElementById("o-b"), c: document.getElementById("o-c"), g: document.getElementById("o-g"), t: document.getElementById("o-t") };
+  var status = document.getElementById("demo-status");
+
+  // Blackbody RGB approximation (Tanner Helland), returned as 0..255 per channel.
+  function kelvin(k) {
+    var t = k / 100, r, gr, b;
+    r = t <= 66 ? 255 : 329.698727446 * Math.pow(t - 60, -0.1332047592);
+    gr = t <= 66 ? 99.4708025861 * Math.log(t) - 161.1195681661 : 288.1221695283 * Math.pow(t - 60, -0.0755148492);
+    b = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
+    return [r, gr, b].map(function (x) { return Math.min(255, Math.max(0, x)); });
+  }
+  var white = kelvin(6500);
+  function tempMul(k) {
+    var c = kelvin(k), m = c.map(function (x, i) { return x / white[i]; }), mx = Math.max.apply(null, m);
+    return m.map(function (x) { return x / mx; });
+  }
+
+  function update() {
+    var b = +s.b.value / 100, c = +s.c.value / 100, gm = +s.g.value, k = +s.t.value, mul = tempMul(k);
+    o.b.textContent = (b > 0 ? "+" : "") + s.b.value;
+    o.c.textContent = s.c.value + "%";
+    o.g.textContent = gm.toFixed(2);
+    o.t.textContent = k + " K";
+    // Same idea as a gamma ramp: input level -> gamma -> contrast -> brightness -> temperature.
+    for (var ch = 0; ch < 3; ch++) {
+      var vals = [];
+      for (var n = 0; n <= 32; n++) {
+        var x = Math.pow(n / 32, 1 / gm);
+        x = ((x - 0.5) * c + 0.5 + b) * mul[ch];
+        vals.push(Math.min(1, Math.max(0, x)).toFixed(4));
+      }
+      funcs[ch].setAttribute("type", "table");
+      funcs[ch].setAttribute("tableValues", vals.join(" "));
+    }
+  }
+  Object.keys(s).forEach(function (key) { s[key].addEventListener("input", update); });
+
+  var showingBefore = false;
+  function setBefore(on) {
+    if (on === showingBefore) return;
+    showingBefore = on;
+    demo.classList.toggle("before", on);
+    if (on) g.removeAttribute("filter"); else g.setAttribute("filter", "url(#tune)");
+    document.getElementById("before").setAttribute("aria-pressed", String(on));
+    status.textContent = T[lang][on ? "demoShowingBefore" : "demoShowingAfter"];
+  }
+  var beforeBtn = document.getElementById("before");
+  beforeBtn.addEventListener("pointerdown", function (e) { e.preventDefault(); beforeBtn.focus(); setBefore(true); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(function (ev) { beforeBtn.addEventListener(ev, function () { setBefore(false); }); });
+  beforeBtn.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  demo.addEventListener("keydown", function (e) {
+    if ((e.key === " " || e.code === "Space") && e.target.id !== "reset") { e.preventDefault(); setBefore(true); }
+  });
+  demo.addEventListener("keyup", function (e) {
+    if (e.key === " " || e.code === "Space") { if (e.target.id !== "reset") e.preventDefault(); setBefore(false); }
+  });
+  demo.addEventListener("focusout", function (e) { if (!demo.contains(e.relatedTarget)) setBefore(false); });
+  window.addEventListener("blur", function () { setBefore(false); });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    s.b.value = 0; s.c.value = 100; s.g.value = 1; s.t.value = 6500;
+    setBefore(false); update();
+  });
+  // Start with a visible tweak so the demo shows something at first glance.
+  s.t.value = 4800; s.g.value = 1.1;
+  update();
+})();
+</script>
+</body>
+</html>

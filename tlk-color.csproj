@@ -11,6 +11,7 @@
     <Authors>Talkdedsec</Authors>
     <Company>Talkdedsec</Company>
     <Version>1.0.0</Version>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
     <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
   </PropertyGroup>
 

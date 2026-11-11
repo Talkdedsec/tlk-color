@@ -33,3 +33,8 @@ NVIDIA renk ayarı benzeri ekran rengi aracı (C# WinForms, .NET 9, bağımlıl�
 - Gama rampası tüm monitöre uygulanır; aynı ekranda yan yana önce/sonra mümkün değil, bu yüzden basılı-tut yöntemi var.
 - Bazı tam ekran oyunlar rampayı sıfırlar; şu an periyodik yeniden uygulama yok.
 - NVAPI fonksiyon kimlikleri sürücüden sorgulanır; desteklenmezse sessizce devre dışı kalır.
+
+## Yayın
+- Arayüz dili TR/EN: `L.cs` (`L.T("Türkçe")`, sözlük Türkçe metinle anahtarlı), ayar `Lang`; değişince uygulama yeniden başlar.
+- Site: `docs/index.html` (GitHub Pages, master /docs). Ekran görüntüleri `docs/assets/screenshot-*.png` (EN) ve `*-tr.png`.
+- Release: `dotnet publish ... -o publish` sonra `gh release create vX.Y.Z publish/tlk-color.exe`.
