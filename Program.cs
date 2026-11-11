@@ -27,6 +27,13 @@ static class Program
         var form = new MainForm(args.Contains("--tray"));
         ThreadPool.RegisterWaitForSingleObject(show, (_, _) => { if (form.IsHandleCreated) form.BeginInvoke(form.ShowMain); }, null, -1, false);
         Application.Run(form);
+        if (form.Restart)
+        {
+            // Close the mutex first, otherwise the new process sees a running instance and exits.
+            mutex.ReleaseMutex();
+            mutex.Dispose();
+            Process.Start(Environment.ProcessPath!);
+        }
     }
 
     // Briefly switches a secondary monitor's refresh rate and scale, reads them back, then restores both.

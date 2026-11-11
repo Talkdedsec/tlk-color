@@ -45,6 +45,7 @@ public class Config
     public List<Profile> Profiles { get; set; } = new();
     public bool Enabled { get; set; } = true;
     public bool CloseToTray { get; set; } = true;
+    public string Lang { get; set; } = "";
 
     static readonly string Dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tlk-color");
     static readonly string FilePath = Path.Combine(Dir, "config.json");
@@ -57,6 +58,7 @@ public class Config
         c.Monitors = (c.Monitors ?? new()).Where(kv => kv.Value != null).ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
         c.Profiles = (c.Profiles ?? new()).Where(p => p?.Settings != null && !string.IsNullOrWhiteSpace(p.Name)).ToList();
         foreach (var s in c.Monitors.Values.Concat(c.Profiles.Select(p => p.Settings))) s.Fix();
+        if (c.Lang is not ("tr" or "en")) c.Lang = L.Default;
         return c;
     }
 

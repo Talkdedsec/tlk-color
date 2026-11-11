@@ -8,8 +8,8 @@ class MainForm : Form
 {
     const uint HotMods = 0x0001 | 0x0002 | 0x4000; // Alt | Ctrl | NoRepeat
     const int HotReset = 10, HotToggle = 11, HotBefore = 12;
-    static readonly CultureInfo Tr = new("tr-TR");
-    static readonly string[] ChannelNames = ["Tümü", "Kırmızı", "Yeşil", "Mavi"];
+    static CultureInfo Ui => L.Culture;
+    static string[] ChannelNames => [L.T("Tümü"), L.T("Kırmızı"), L.T("Yeşil"), L.T("Mavi")];
 
     readonly Config cfg = Config.Load();
     readonly bool startHidden;
@@ -46,13 +46,16 @@ class MainForm : Form
     int pendOrient, pendScale = 100, pendFit, curFit;
     readonly NumberBox customW, customH, customHz;
     readonly Segmented fitSeg;
-    static readonly string[] Orientations = ["Yatay", "Dikey", "Ters yatay", "Ters dikey"];
+    static string[] Orientations => [L.T("Yatay"), L.T("Dikey"), L.T("Ters yatay"), L.T("Ters dikey")];
     // DISPLAYCONFIG_SCALING values behind each fit option.
-    static readonly string[] FitNames = ["Oranı koru", "Tam ekran", "Ortala", "Monitör"];
+    static string[] FitNames => [L.T("Oranı koru"), L.T("Tam ekran"), L.T("Ortala"), L.T("Monitör")];
     static readonly int[] FitValues = [4, 3, 2, 1];
+
+    public bool Restart;
 
     public MainForm(bool hidden)
     {
+        L.En = cfg.Lang == "en";
         startHidden = hidden;
         Theme.Scale = DeviceDpi / 96f;
         static int P(float v) => Theme.P(v);
@@ -79,47 +82,51 @@ class MainForm : Form
             using var brand = Theme.DisplaySemi(15f);
             TextRenderer.DrawText(g, "tlk-color", brand, new Point(P(54), P(23)), Theme.Text, TextFormatFlags.NoPadding);
             using var sub = Theme.Body(8.5f);
-            TextRenderer.DrawText(g, "Ekran renk ayarı", sub, new Point(P(55), P(52)), Theme.Dim, TextFormatFlags.NoPadding);
+            TextRenderer.DrawText(g, L.T("Ekran renk ayarı"), sub, new Point(P(55), P(52)), Theme.Dim, TextFormatFlags.NoPadding);
             using var pen = new Pen(Theme.Line);
             g.DrawLine(pen, side.Width - 1, 0, side.Width - 1, side.Height);
         };
         Controls.Add(side);
         int sx = P(24), sw = P(216);
 
-        var nav = new Segmented { Items = ["Renk", "Görüntü"], Dots = false, Bounds = new Rectangle(sx, P(92), sw, P(40)) };
+        var nav = new Segmented { Items = [L.T("Renk"), L.T("Görüntü")], Dots = false, Bounds = new Rectangle(sx, P(92), sw, P(40)) };
         nav.SelectedChanged += () => ShowPage(nav.Selected);
         side.Controls.Add(nav);
 
-        side.Controls.Add(new Caption("EKRAN") { Bounds = new Rectangle(sx, P(160), sw, P(18)) });
+        side.Controls.Add(new Caption(L.T("EKRAN")) { Bounds = new Rectangle(sx, P(160), sw, P(18)) });
         monitorBtn = new FlatButton { Dropdown = true, Bounds = new Rectangle(sx, P(182), sw, P(40)) };
         monitorBtn.Click += (_, _) => ShowMonitorMenu();
         side.Controls.Add(monitorBtn);
 
-        side.Controls.Add(new Caption("PROFİLLER") { Bounds = new Rectangle(sx, P(248), sw, P(18)) });
-        profiles = new ProfileList { Bounds = new Rectangle(sx, P(270), sw, P(160)) };
+        side.Controls.Add(new Caption(L.T("PROFİLLER")) { Bounds = new Rectangle(sx, P(248), sw, P(18)) });
+        profiles = new ProfileList { Bounds = new Rectangle(sx, P(270), sw, P(126)) };
         profiles.ItemClicked += ApplyProfile;
-        tip.SetToolTip(profiles, "Tıkla: uygula · Ctrl+Alt+1…9: kısayolla uygula");
+        tip.SetToolTip(profiles, L.T("Tıkla: uygula · Ctrl+Alt+1…9: kısayolla uygula"));
         side.Controls.Add(profiles);
         int half = (sw - P(8)) / 2;
-        var saveBtn = new FlatButton { Text = "Kaydet", Ghost = true, Bounds = new Rectangle(sx, P(438), half, P(36)) };
-        var delBtn = new FlatButton { Text = "Sil", Ghost = true, Bounds = new Rectangle(sx + half + P(8), P(438), half, P(36)) };
+        var saveBtn = new FlatButton { Text = L.T("Kaydet"), Ghost = true, Bounds = new Rectangle(sx, P(404), half, P(36)) };
+        var delBtn = new FlatButton { Text = L.T("Sil"), Ghost = true, Bounds = new Rectangle(sx + half + P(8), P(404), half, P(36)) };
         saveBtn.Click += (_, _) => SaveProfile();
         delBtn.Click += (_, _) => DeleteProfile();
-        tip.SetToolTip(saveBtn, "Şu anki ayarları profil olarak kaydet");
-        tip.SetToolTip(delBtn, "Seçili profili sil");
+        tip.SetToolTip(saveBtn, L.T("Şu anki ayarları profil olarak kaydet"));
+        tip.SetToolTip(delBtn, L.T("Seçili profili sil"));
         side.Controls.AddRange([saveBtn, delBtn]);
 
-        side.Controls.Add(new Caption("AYARLAR") { Bounds = new Rectangle(sx, P(500), sw, P(18)) });
-        tEnabled = new Toggle { Text = "Etkin", Hint = "Ctrl+Alt+C", Checked = cfg.Enabled, Bounds = new Rectangle(sx, P(522), sw, P(32)) };
+        side.Controls.Add(new Caption(L.T("AYARLAR")) { Bounds = new Rectangle(sx, P(466), sw, P(18)) });
+        tEnabled = new Toggle { Text = L.T("Etkin"), Hint = "Ctrl+Alt+C", Checked = cfg.Enabled, Bounds = new Rectangle(sx, P(488), sw, P(32)) };
         tEnabled.CheckedChanged += () => SetEnabled(tEnabled.Checked);
-        var tStartup = new Toggle { Text = "Windows ile başlat", Checked = Win.Autostart, Bounds = new Rectangle(sx, P(556), sw, P(32)) };
+        var tStartup = new Toggle { Text = L.T("Windows ile başlat"), Checked = Win.Autostart, Bounds = new Rectangle(sx, P(522), sw, P(32)) };
         tStartup.CheckedChanged += () => Win.Autostart = tStartup.Checked;
-        var tTray = new Toggle { Text = "Kapatınca tepsiye", Checked = cfg.CloseToTray, Bounds = new Rectangle(sx, P(590), sw, P(32)) };
+        var tTray = new Toggle { Text = L.T("Kapatınca tepsiye"), Checked = cfg.CloseToTray, Bounds = new Rectangle(sx, P(556), sw, P(32)) };
         tTray.CheckedChanged += () => { cfg.CloseToTray = tTray.Checked; cfg.Save(); };
+        var lang = new Segmented { Items = ["Türkçe", "English"], Dots = false, Selected = L.En ? 1 : 0, Bounds = new Rectangle(sx, P(592), sw, P(32)) };
+        // Every string is read once at construction, so a language switch restarts the app (Program.Main relaunches it).
+        lang.SelectedChanged += () => { cfg.Lang = lang.Selected == 1 ? "en" : "tr"; cfg.Save(); Restart = quitting = true; BeginInvoke(Close); };
+        tip.SetToolTip(lang, L.T("Arayüz dili · uygulama yeniden açılır"));
         wideBtn = new FlatButton { Ghost = true, Bounds = new Rectangle(sx, P(634), sw, P(36)) };
         wideBtn.Click += (_, _) => EnableWideGamma();
-        tip.SetToolTip(wideBtn, "Windows uç gama değerlerini kısar; bu ayar sınırı kaldırır (yönetici izni ister)");
-        side.Controls.AddRange([tEnabled, tStartup, tTray, wideBtn]);
+        tip.SetToolTip(wideBtn, L.T("Windows uç gama değerlerini kısar; bu ayar sınırı kaldırır (yönetici izni ister)"));
+        side.Controls.AddRange([tEnabled, tStartup, tTray, lang, wideBtn]);
 
         // ── Header: live readout + channel switch ───────────────
         int mx = P(296), mw = P(712), col = (mw - P(32)) / 2;
@@ -130,7 +137,7 @@ class MainForm : Form
         {
             channel = seg.Selected;
             LoadUi();
-            readout.Show("KANAL", ChannelNames[channel]);
+            readout.Show(L.T("KANAL"), ChannelNames[channel]);
         };
         Controls.Add(readout);
         Page(colorPage, seg);
@@ -138,18 +145,18 @@ class MainForm : Form
         // ── Stage: what the screen actually shows ───────────────
         pattern = new PatternView { Bounds = new Rectangle(mx, P(124), mw - P(256), P(220)) };
         curve = new CurveView { Bounds = new Rectangle(mx + mw - P(240), P(124), P(240), P(220)) };
-        tip.SetToolTip(pattern, "Test deseni ekranın gerçek çıktısıdır · alt sıradaki koyu ve açık kutuların hepsi ayırt edilebilmeli");
+        tip.SetToolTip(pattern, L.T("Test deseni ekranın gerçek çıktısıdır · alt sıradaki koyu ve açık kutuların hepsi ayırt edilebilmeli"));
         Page(colorPage, pattern, curve);
 
         // ── Controls ────────────────────────────────────────────
-        Page(colorPage, new Caption("TON", true) { Bounds = new Rectangle(mx, P(370), col, P(18)) },
-            new Caption("RENK", true) { Bounds = new Rectangle(mx + col + P(32), P(370), col, P(18)) });
+        Page(colorPage, new Caption(L.T("TON"), true) { Bounds = new Rectangle(mx, P(370), col, P(18)) },
+            new Caption(L.T("RENK"), true) { Bounds = new Rectangle(mx + col + P(32), P(370), col, P(18)) });
         int c1 = mx - P(9), c2 = mx + col + P(32) - P(9), cw = col + P(18);
 
         sBright = AddSlider("Parlaklık", 0, 100, 50, c1, P(396), cw, "%", (s, v) => { foreach (var c in Channels()) s.Brightness[c] = v; }, perChannel: true);
         sContrast = AddSlider("Kontrast", 0, 100, 50, c1, P(456), cw, "%", (s, v) => { foreach (var c in Channels()) s.Contrast[c] = v; }, perChannel: true);
         sGamma = AddSlider("Gama", 30, 280, 100, c1, P(516), cw, "", (s, v) => { foreach (var c in Channels()) s.Gamma[c] = v; }, perChannel: true);
-        sGamma.Format = v => (v / 100.0).ToString("0.00", Tr);
+        sGamma.Format = v => (v / 100.0).ToString("0.00", Ui);
 
         sKelvin = AddSlider("Renk sıcaklığı", 1900, 10000, 6500, c2, P(396), cw, " K", (s, v) => s.Kelvin = v, step: 100);
         sKelvin.Gradient = Enumerable.Range(0, 9).Select(i =>
@@ -159,20 +166,20 @@ class MainForm : Form
         }).ToArray();
         sVib = AddSlider("Dijital canlılık", 0, 100, 50, c2, P(456), cw, "%", (s, v) => s.Vibrance = v);
         sVib.Gradient = [Color.FromArgb(0x6a, 0x6a, 0x6a), Color.FromArgb(0xb8, 0x8a, 0x5c), Color.FromArgb(0xff, 0x6a, 0x00)];
-        sVib.Note = "NVIDIA ekran yok";
+        sVib.Note = L.T("NVIDIA ekran yok");
         sHue = AddSlider("Ton kayması", 0, 359, 0, c2, P(516), cw, "°", (s, v) => s.Hue = v);
         sHue.Gradient = [Color.FromArgb(255, 80, 80), Color.FromArgb(255, 220, 60), Color.FromArgb(80, 220, 100), Color.FromArgb(60, 210, 230), Color.FromArgb(80, 120, 255), Color.FromArgb(220, 80, 230), Color.FromArgb(255, 80, 80)];
-        sHue.Note = "NVIDIA ekran yok";
+        sHue.Note = L.T("NVIDIA ekran yok");
 
         // ── Footer ──────────────────────────────────────────────
         int fy = P(636);
-        beforeBtn = new FlatButton { Primary = true, Text = "Önce / Sonra  ·  basılı tut", Bounds = new Rectangle(mx, fy, P(250), P(44)) };
+        beforeBtn = new FlatButton { Primary = true, Text = L.T("Önce / Sonra  ·  basılı tut"), Bounds = new Rectangle(mx, fy, P(250), P(44)) };
         beforeBtn.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) SetBefore(true); };
         beforeBtn.MouseUp += (_, _) => SetBefore(false);
-        tip.SetToolTip(beforeBtn, "Basılı tutunca orijinal renkler görünür · Boşluk tuşu da çalışır · Ctrl+Alt+B kilitler");
-        var resetBtn = new FlatButton { Text = "Sıfırla", Ghost = true, Bounds = new Rectangle(mx + P(262), fy, P(110), P(44)) };
+        tip.SetToolTip(beforeBtn, L.T("Basılı tutunca orijinal renkler görünür · Boşluk tuşu da çalışır · Ctrl+Alt+B kilitler"));
+        var resetBtn = new FlatButton { Text = L.T("Sıfırla"), Ghost = true, Bounds = new Rectangle(mx + P(262), fy, P(110), P(44)) };
         resetBtn.Click += (_, _) => Reset();
-        tip.SetToolTip(resetBtn, "Seçili ekranı varsayılana döndür · Ctrl+Alt+0");
+        tip.SetToolTip(resetBtn, L.T("Seçili ekranı varsayılana döndür · Ctrl+Alt+0"));
         status = new StatusLine { Bounds = new Rectangle(mx + P(384), fy, mw - P(384), P(44)) };
         Controls.Add(status);
         Page(colorPage, beforeBtn, resetBtn);
@@ -180,7 +187,7 @@ class MainForm : Form
         // ── Display page ────────────────────────────────────────
         map = new MonitorMap { Bounds = new Rectangle(mx, P(124), mw, P(150)) };
         map.MonitorClicked += SelectTarget;
-        tip.SetToolTip(map, "Ayarlamak istediğin ekrana tıkla");
+        tip.SetToolTip(map, L.T("Ayarlamak istediğin ekrana tıkla"));
         int d2 = mx + col + P(32);
         resBtn = new FlatButton { Dropdown = true, Bounds = new Rectangle(mx, P(318), col, P(40)) };
         resBtn.Click += (_, _) => ShowModeMenu(true);
@@ -199,8 +206,8 @@ class MainForm : Form
         foreach (var b in new[] { customW, customH, customHz }) b.ValueChanged += OnCustomChanged;
         var times = new Label { Text = "×", ForeColor = Theme.Dim, Font = Theme.Body(11f), TextAlign = ContentAlignment.MiddleCenter, Bounds = new Rectangle(mx + bw, P(482), sep, P(40)) };
         var at = new Label { Text = "@", ForeColor = Theme.Dim, Font = Theme.Body(10f), TextAlign = ContentAlignment.MiddleCenter, Bounds = new Rectangle(mx + 2 * bw + sep, P(482), sep, P(40)) };
-        tip.SetToolTip(customW, "Genişlik (piksel)");
-        tip.SetToolTip(customH, "Yükseklik (piksel)");
+        tip.SetToolTip(customW, L.T("Genişlik (piksel)"));
+        tip.SetToolTip(customH, L.T("Yükseklik (piksel)"));
         var presets = new List<Control>();
         (int W, int H)[] four3 = [(1440, 1080), (1280, 960), (1024, 768)];
         int pw = (col - 2 * P(8)) / 3;
@@ -209,36 +216,36 @@ class MainForm : Form
             var (w, h) = four3[i];
             var chip = new FlatButton { Text = $"{w}×{h}", Ghost = true, Font = Theme.Mono(8.5f), Bounds = new Rectangle(mx + i * (pw + P(8)), P(534), pw, P(32)) };
             chip.Click += (_, _) => UsePreset(w, h);
-            tip.SetToolTip(chip, $"4:3 · {w}×{h} · sığdırma: Tam ekran (kenarlar siyah olmaz)");
+            tip.SetToolTip(chip, $"4:3 · {w}×{h} · " + L.T("sığdırma: Tam ekran (kenarlar siyah olmaz)"));
             presets.Add(chip);
         }
 
         // Fit mode, like NVIDIA's "Adjust desktop size and position".
         fitSeg = new Segmented { Items = FitNames, Dots = false, Bounds = new Rectangle(d2, P(482), col, P(40)) };
         fitSeg.SelectedChanged += () => { pendFit = FitValues[fitSeg.Selected]; UpdateDisplayUi(); };
-        tip.SetToolTip(fitSeg, "Oranı koru: siyah kenar · Tam ekran: görüntüyü uzatır · Ortala: ölçeklemez · Monitör: ekranın kendisi karar verir");
+        tip.SetToolTip(fitSeg, L.T("Oranı koru: siyah kenar · Tam ekran: görüntüyü uzatır · Ortala: ölçeklemez · Monitör: ekranın kendisi karar verir"));
         var fitHint = new Label
         {
-            Text = "Doğal çözünürlükten farklı modlarda geçerli. 4:3'te kenarlar siyah kalmasın istiyorsan: Tam ekran.",
+            Text = L.T("Doğal çözünürlükten farklı modlarda geçerli. 4:3'te kenarlar siyah kalmasın istiyorsan: Tam ekran."),
             ForeColor = Theme.Dim, Font = Theme.Body(8.5f), Bounds = new Rectangle(d2, P(532), col, P(36)),
         };
-        applyBtn = new FlatButton { Primary = true, Text = "Uygula", Bounds = new Rectangle(mx, fy, P(250), P(44)) };
+        applyBtn = new FlatButton { Primary = true, Text = L.T("Uygula"), Bounds = new Rectangle(mx, fy, P(250), P(44)) };
         applyBtn.Click += (_, _) => ApplyDisplay();
-        var undoBtn = new FlatButton { Text = "Vazgeç", Ghost = true, Bounds = new Rectangle(mx + P(262), fy, P(110), P(44)) };
+        var undoBtn = new FlatButton { Text = L.T("Vazgeç"), Ghost = true, Bounds = new Rectangle(mx + P(262), fy, P(110), P(44)) };
         undoBtn.Click += (_, _) => LoadDisplay();
-        tip.SetToolTip(undoBtn, "Uygulanmamış seçimleri bırak");
+        tip.SetToolTip(undoBtn, L.T("Uygulanmamış seçimleri bırak"));
         var note = new Label
         {
-            Text = "Çözünürlük, yenileme hızı, yön ve özel çözünürlük 15 sn içinde onaylanmazsa geri alınır.",
+            Text = L.T("Çözünürlük, yenileme hızı, yön ve özel çözünürlük 15 sn içinde onaylanmazsa geri alınır."),
             ForeColor = Theme.Faint, Font = Theme.Body(8.5f), Bounds = new Rectangle(mx, P(590), mw, P(20)),
         };
         Page(displayPage, map,
-            new Caption("ÇÖZÜNÜRLÜK", true) { Bounds = new Rectangle(mx, P(296), col, P(18)) },
-            new Caption("YENİLEME HIZI", true) { Bounds = new Rectangle(mx, P(378), col, P(18)) },
-            new Caption("ÖZEL ÇÖZÜNÜRLÜK", true) { Bounds = new Rectangle(mx, P(460), col, P(18)) },
-            new Caption("ÖLÇEK", true) { Bounds = new Rectangle(d2, P(296), col, P(18)) },
-            new Caption("YÖN", true) { Bounds = new Rectangle(d2, P(378), col, P(18)) },
-            new Caption("SIĞDIRMA", true) { Bounds = new Rectangle(d2, P(460), col, P(18)) },
+            new Caption(L.T("ÇÖZÜNÜRLÜK"), true) { Bounds = new Rectangle(mx, P(296), col, P(18)) },
+            new Caption(L.T("YENİLEME HIZI"), true) { Bounds = new Rectangle(mx, P(378), col, P(18)) },
+            new Caption(L.T("ÖZEL ÇÖZÜNÜRLÜK"), true) { Bounds = new Rectangle(mx, P(460), col, P(18)) },
+            new Caption(L.T("ÖLÇEK"), true) { Bounds = new Rectangle(d2, P(296), col, P(18)) },
+            new Caption(L.T("YÖN"), true) { Bounds = new Rectangle(d2, P(378), col, P(18)) },
+            new Caption(L.T("SIĞDIRMA"), true) { Bounds = new Rectangle(d2, P(460), col, P(18)) },
             resBtn, hzBtn, scaleSeg, orientSeg, customW, times, customH, at, customHz, fitSeg, fitHint, note, applyBtn, undoBtn);
         Page(displayPage, presets.ToArray());
         foreach (var c in displayPage) c.Visible = false;
@@ -254,12 +261,12 @@ class MainForm : Form
         SystemEvents.PowerModeChanged += OnPowerChange;
 
         Reload(false);
-        readout.Show("EKRAN", monitorBtn.Text);
+        readout.Show(L.T("EKRAN"), monitorBtn.Text);
     }
 
     Slider AddSlider(string label, int min, int max, int def, int x, int y, int w, string unit, Action<Settings, int> write, int step = 1, bool perChannel = false)
     {
-        var s = new Slider { Label = label, Unit = unit, Min = min, Max = max, Default = def, Step = step, Bounds = new Rectangle(x, y, w, Theme.P(58)) };
+        var s = new Slider { Label = L.T(label), Unit = unit, Min = min, Max = max, Default = def, Step = step, Bounds = new Rectangle(x, y, w, Theme.P(58)) };
         s.SetSilent(def, false);
         s.ValueChanged += () =>
         {
@@ -271,7 +278,7 @@ class MainForm : Form
         };
         s.MouseEnter += (_, _) => ShowValue(s, perChannel);
         s.GotFocus += (_, _) => ShowValue(s, perChannel);
-        tip.SetToolTip(s, "Sürükle, tekerlek veya ok tuşları · çift tık: varsayılan");
+        tip.SetToolTip(s, L.T("Sürükle, tekerlek veya ok tuşları · çift tık: varsayılan"));
         Page(colorPage, s);
         return s;
     }
@@ -293,7 +300,7 @@ class MainForm : Form
         readout.Width = (p == 1 ? seg.Right : seg.Left - Theme.P(24)) - readout.Left;
         ResumeLayout();
         if (p == 1) LoadDisplay();
-        else readout.Show("EKRAN", monitorBtn.Text);
+        else readout.Show(L.T("EKRAN"), monitorBtn.Text);
     }
 
     string DisplayDev => target == "" ? Screen.PrimaryScreen!.DeviceName : target;
@@ -339,7 +346,7 @@ class MainForm : Form
         var dev = DisplayDev;
         if (pendMode is { } m)
         {
-            resBtn.Text = $"{m.Width} × {m.Height}" + (IsCustom(m) ? "  ·  özel" : "");
+            resBtn.Text = $"{m.Width} × {m.Height}" + (IsCustom(m) ? "  ·  " + L.T("özel") : "");
             hzBtn.Text = $"{m.Hz} Hz";
             // Mirror the pending mode into the custom boxes unless the user is typing there.
             if (!customW.Editing && !customH.Editing && !customHz.Editing)
@@ -355,8 +362,8 @@ class MainForm : Form
         applyBtn.Enabled = valid && (modeChanged || scaleChanged || pendFit != curFit);
         int idx = Array.FindIndex(Screen.AllScreens, s => s.DeviceName == dev);
         if (pendMode is { } p)
-            readout.Show($"EKRAN {idx + 1}", $"{p.Width}×{p.Height}", $"{p.Hz} Hz · {pendScale}% · {FitNames[Math.Max(Array.IndexOf(FitValues, pendFit), 0)]}");
-        if (!valid) status.Set("Sınır: 640×480–7680×4320, 24–500 Hz", Theme.Warn);
+            readout.Show($"{L.T("EKRAN")} {idx + 1}", $"{p.Width}×{p.Height}", $"{p.Hz} Hz · {pendScale}% · {FitNames[Math.Max(Array.IndexOf(FitValues, pendFit), 0)]}");
+        if (!valid) status.Set(L.T("Sınır: 640×480–7680×4320, 24–500 Hz"), Theme.Warn);
     }
 
     void OnCustomChanged()
@@ -417,40 +424,40 @@ class MainForm : Form
             if (Display.Test(dev, mode, pendOrient) == 0)
             {
                 int r = Display.Apply(dev, mode, pendOrient);
-                if (r != 0) { Fail($"Ekran bu modu kabul etmedi ({r})"); return; }
+                if (r != 0) { Fail($"{L.T("Ekran bu modu kabul etmedi")} ({r})"); return; }
                 // Fit is stored per mode, so set it now — the user should judge the new mode with the chosen fit.
                 fitWarning = ApplyFit(dev);
                 if (!ConfirmBox.Keep(this, label))
                 {
                     Display.Restore(dev, previous);
-                    Fail("Eski görüntü ayarına dönüldü", Theme.Text2);
+                    Fail(L.T("Eski görüntü ayarına dönüldü"), Theme.Text2);
                     return;
                 }
             }
             else if (Nv.CanCustom(dev))
             {
                 int r = Nv.TryCustom(dev, mode.Width, mode.Height, mode.Hz);
-                if (r != 0) { Fail($"NVIDIA bu özel çözünürlüğü reddetti ({r})"); return; }
-                if (!ConfirmBox.Keep(this, label + "  ·  özel"))
+                if (r != 0) { Fail($"{L.T("NVIDIA bu özel çözünürlüğü reddetti")} ({r})"); return; }
+                if (!ConfirmBox.Keep(this, label + "  ·  " + L.T("özel")))
                 {
                     Nv.RevertCustom(dev);
-                    Fail("Özel çözünürlük geri alındı", Theme.Text2);
+                    Fail(L.T("Özel çözünürlük geri alındı"), Theme.Text2);
                     return;
                 }
-                if (!Nv.KeepCustom(dev)) { Fail("Özel çözünürlük kaydedilemedi"); return; }
+                if (!Nv.KeepCustom(dev)) { Fail(L.T("Özel çözünürlük kaydedilemedi")); return; }
                 fitWarning = ApplyFit(dev);
             }
             else
             {
-                Fail("Özel çözünürlük yalnızca NVIDIA ekranda");
+                Fail(L.T("Özel çözünürlük yalnızca NVIDIA ekranda"));
                 return;
             }
         }
         else if (pendFit != curFit) fitWarning = ApplyFit(dev);
 
-        if (scaleInfo != null && pendScale != scaleInfo.Current && !Display.SetScale(dev, pendScale)) { Fail("Ölçek değiştirilemedi"); return; }
+        if (scaleInfo != null && pendScale != scaleInfo.Current && !Display.SetScale(dev, pendScale)) { Fail(L.T("Ölçek değiştirilemedi")); return; }
         if (fitWarning != null) status.Set(fitWarning, Theme.Warn);
-        else status.Set("Görüntü ayarı uygulandı", Theme.Channel[2]);
+        else status.Set(L.T("Görüntü ayarı uygulandı"), Theme.Channel[2]);
         LoadDisplay();
     }
 
@@ -460,7 +467,7 @@ class MainForm : Form
         if (Display.Scaling(dev) == pendFit) return null;
         Display.SetScaling(dev, pendFit);
         // At native resolution Windows drops the fit (nothing to scale); only a scaled mode that ignores it is a real refusal.
-        return Display.Scaling(dev) == pendFit || !Display.IsScaled(dev) ? null : $"Ekran \"{FitNames[Array.IndexOf(FitValues, pendFit)]}\" desteklemiyor";
+        return Display.Scaling(dev) == pendFit || !Display.IsScaled(dev) ? null : string.Format(L.T("Ekran \"{0}\" desteklemiyor"), FitNames[Array.IndexOf(FitValues, pendFit)]);
     }
 
     void Fail(string message, Color? color = null)
@@ -472,7 +479,7 @@ class MainForm : Form
     void ShowValue(Slider s, bool perChannel)
     {
         if (!s.Enabled) return;
-        var title = s.Label.ToUpper(Tr) + (perChannel && channel > 0 ? "  ·  " + ChannelNames[channel].ToUpper(Tr) : "");
+        var title = s.Label.ToUpper(Ui) + (perChannel && channel > 0 ? "  ·  " + ChannelNames[channel].ToUpper(Ui) : "");
         readout.Show(title, s.ValueText, s.Unit.Trim());
     }
 
@@ -514,16 +521,16 @@ class MainForm : Form
         curve.Invalidate();
         var screens = Screen.AllScreens;
         int idx = Array.FindIndex(screens, x => x.DeviceName == target);
-        monitorBtn.Text = idx < 0 ? $"Tüm ekranlar  ·  {screens.Length}" : MonitorName(screens[idx], idx);
+        monitorBtn.Text = idx < 0 ? $"{L.T("Tüm ekranlar")}  ·  {screens.Length}" : MonitorName(screens[idx], idx);
         profiles.Items = cfg.Profiles.Select((p, i) => (p.Name, i < 9 ? $"{i + 1}" : "")).ToList();
         profiles.Invalidate();
         bool wide = Win.WideGamma;
-        wideBtn.Text = wide ? "Geniş gama aralığı açık" : "Geniş gama aralığını aç";
+        wideBtn.Text = L.T(wide ? "Geniş gama aralığı açık" : "Geniş gama aralığını aç");
         wideBtn.Enabled = !wide;
     }
 
     static string MonitorName(Screen s, int i) =>
-        $"Ekran {i + 1}  ·  {s.Bounds.Width}×{s.Bounds.Height}{(s.Primary ? "  ·  birincil" : "")}";
+        $"{L.T("Ekran")} {i + 1}  ·  {s.Bounds.Width}×{s.Bounds.Height}{(s.Primary ? "  ·  " + L.T("birincil") : "")}";
 
     void Changed()
     {
@@ -544,12 +551,12 @@ class MainForm : Form
         }
         // On the display page the status line belongs to display changes; only color errors may interrupt it.
         if (page == 1 && worst == Ramp.Result.Ok) return;
-        if (worst == Ramp.Result.Failed) status.Set("Ekran gama ayarını kabul etmedi", Theme.Danger);
-        else if (worst == Ramp.Result.Limited) status.Set("Windows sınırı: etki kısıldı", Theme.Warn);
-        else if (!hotkeysOk) status.Set("Bazı kısayollar başka programda", Theme.Warn);
-        else if (before) status.Set("Orijinal renkler", Theme.Text2);
-        else if (!cfg.Enabled) status.Set("Devre dışı", Theme.Faint);
-        else status.Set("Uygulandı", Theme.Channel[2]);
+        if (worst == Ramp.Result.Failed) status.Set(L.T("Ekran gama ayarını kabul etmedi"), Theme.Danger);
+        else if (worst == Ramp.Result.Limited) status.Set(L.T("Windows sınırı: etki kısıldı"), Theme.Warn);
+        else if (!hotkeysOk) status.Set(L.T("Bazı kısayollar başka programda"), Theme.Warn);
+        else if (before) status.Set(L.T("Orijinal renkler"), Theme.Text2);
+        else if (!cfg.Enabled) status.Set(L.T("Devre dışı"), Theme.Faint);
+        else status.Set(L.T("Uygulandı"), Theme.Channel[2]);
     }
 
     Ramp.Result ApplyDevice(string dev)
@@ -568,8 +575,8 @@ class MainForm : Form
         if (before == b) return;
         before = b;
         pattern.Before = b;
-        beforeBtn.Text = b ? "Önce  ·  bırakınca sonra" : "Önce / Sonra  ·  basılı tut";
-        readout.Show("KARŞILAŞTIRMA", b ? "Önce" : "Sonra");
+        beforeBtn.Text = L.T(b ? "Önce  ·  bırakınca sonra" : "Önce / Sonra  ·  basılı tut");
+        readout.Show(L.T("KARŞILAŞTIRMA"), L.T(b ? "Önce" : "Sonra"));
         ApplyAll();
     }
 
@@ -587,12 +594,12 @@ class MainForm : Form
         profiles.Selected = -1;
         LoadUi();
         Changed();
-        readout.Show("SIFIRLANDI", target == "" ? "Tüm ekranlar" : monitorBtn.Text);
+        readout.Show(L.T("SIFIRLANDI"), target == "" ? L.T("Tüm ekranlar") : monitorBtn.Text);
     }
 
     void SaveProfile()
     {
-        var name = InputBox.Ask(this, "Profil kaydet", $"Profil {cfg.Profiles.Count + 1}");
+        var name = InputBox.Ask(this, L.T("Profil kaydet"), $"{L.T("Profil")} {cfg.Profiles.Count + 1}");
         if (name == null) return;
         int i = cfg.Profiles.FindIndex(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         var profile = new Profile { Name = name, Settings = Current().Clone() };
@@ -601,19 +608,19 @@ class MainForm : Form
         cfg.Save();
         LoadUi();
         profiles.Selected = i;
-        readout.Show("PROFİL KAYDEDİLDİ", name);
+        readout.Show(L.T("PROFİL KAYDEDİLDİ"), name);
     }
 
     void DeleteProfile()
     {
         int i = profiles.Selected;
-        if (i < 0 || i >= cfg.Profiles.Count) { readout.Show("PROFİL", "Önce birini seç"); return; }
+        if (i < 0 || i >= cfg.Profiles.Count) { readout.Show(L.T("PROFİL"), L.T("Önce birini seç")); return; }
         var name = cfg.Profiles[i].Name;
         cfg.Profiles.RemoveAt(i);
         profiles.Selected = -1;
         cfg.Save();
         LoadUi();
-        readout.Show("PROFİL SİLİNDİ", name);
+        readout.Show(L.T("PROFİL SİLİNDİ"), name);
     }
 
     void ApplyProfile(int i)
@@ -623,14 +630,14 @@ class MainForm : Form
         LoadUi();
         profiles.Selected = i;
         Changed();
-        readout.Show("PROFİL", cfg.Profiles[i].Name);
+        readout.Show(L.T("PROFİL"), cfg.Profiles[i].Name);
     }
 
     void ShowMonitorMenu()
     {
         monitorMenu.Items.Clear();
         var screens = Screen.AllScreens;
-        monitorMenu.Items.Add(new ToolStripMenuItem($"Tüm ekranlar  ·  {screens.Length}", null, (_, _) => SelectTarget("")) { Checked = target == "" });
+        monitorMenu.Items.Add(new ToolStripMenuItem($"{L.T("Tüm ekranlar")}  ·  {screens.Length}", null, (_, _) => SelectTarget("")) { Checked = target == "" });
         monitorMenu.Items.Add(new ToolStripSeparator());
         for (int i = 0; i < screens.Length; i++)
         {
@@ -648,14 +655,14 @@ class MainForm : Form
         profiles.Selected = -1;
         LoadUi();
         if (page == 1) LoadDisplay();
-        else readout.Show("EKRAN", monitorBtn.Text);
+        else readout.Show(L.T("EKRAN"), monitorBtn.Text);
     }
 
     void BuildTrayMenu()
     {
         var m = tray.ContextMenuStrip!;
         m.Items.Clear();
-        m.Items.Add(new ToolStripMenuItem("Göster", null, (_, _) => ShowMain()) { Font = Theme.BodySemi(9.5f) });
+        m.Items.Add(new ToolStripMenuItem(L.T("Göster"), null, (_, _) => ShowMain()) { Font = Theme.BodySemi(9.5f) });
         m.Items.Add(new ToolStripSeparator());
         for (int i = 0; i < cfg.Profiles.Count; i++)
         {
@@ -663,10 +670,10 @@ class MainForm : Form
             m.Items.Add(new ToolStripMenuItem(cfg.Profiles[i].Name, null, (_, _) => ApplyProfile(idx)) { Checked = profiles.Selected == i });
         }
         if (cfg.Profiles.Count > 0) m.Items.Add(new ToolStripSeparator());
-        m.Items.Add(new ToolStripMenuItem("Etkin", null, (_, _) => SetEnabled(!cfg.Enabled)) { Checked = cfg.Enabled });
-        m.Items.Add(new ToolStripMenuItem("Sıfırla", null, (_, _) => Reset()));
+        m.Items.Add(new ToolStripMenuItem(L.T("Etkin"), null, (_, _) => SetEnabled(!cfg.Enabled)) { Checked = cfg.Enabled });
+        m.Items.Add(new ToolStripMenuItem(L.T("Sıfırla"), null, (_, _) => Reset()));
         m.Items.Add(new ToolStripSeparator());
-        m.Items.Add(new ToolStripMenuItem("Çıkış", null, (_, _) => { quitting = true; Close(); }));
+        m.Items.Add(new ToolStripMenuItem(L.T("Çıkış"), null, (_, _) => { quitting = true; Close(); }));
     }
 
     void EnableWideGamma()
@@ -676,9 +683,9 @@ class MainForm : Form
             Win.EnableWideGamma();
             LoadUi();
             ApplyAll();
-            readout.Show("GENİŞ GAMA", Win.WideGamma ? "Açıldı" : "Yazılamadı");
+            readout.Show(L.T("GENİŞ GAMA"), L.T(Win.WideGamma ? "Açıldı" : "Yazılamadı"));
         }
-        catch (Win32Exception) { readout.Show("GENİŞ GAMA", "İzin verilmedi"); }
+        catch (Win32Exception) { readout.Show(L.T("GENİŞ GAMA"), L.T("İzin verilmedi")); }
     }
 
     public void ShowMain()
@@ -757,7 +764,7 @@ class MainForm : Form
         {
             e.Cancel = true;
             Hide();
-            if (!trayHintShown) tray.ShowBalloonTip(2500, "tlk-color", "Tepside çalışmaya devam ediyor. Çıkmak için simgeye sağ tıkla.", ToolTipIcon.None);
+            if (!trayHintShown) tray.ShowBalloonTip(2500, "tlk-color", L.T("Tepside çalışmaya devam ediyor. Çıkmak için simgeye sağ tıkla."), ToolTipIcon.None);
             trayHintShown = true;
             return;
         }

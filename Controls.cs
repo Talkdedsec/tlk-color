@@ -625,9 +625,9 @@ class ProfileList : DarkControl
             using var big = Theme.DisplayLight(20f);
             var mid = Height / 2;
             TextRenderer.DrawText(g, "+", big, new Rectangle(0, mid - Theme.P(52), Width, Theme.P(40)), Theme.Faint, AlignCenter);
-            TextRenderer.DrawText(g, "Henüz profil yok", Font, new Rectangle(0, mid - Theme.P(10), Width, Theme.P(22)), Theme.Text2, AlignCenter);
+            TextRenderer.DrawText(g, L.T("Henüz profil yok"), Font, new Rectangle(0, mid - Theme.P(10), Width, Theme.P(22)), Theme.Text2, AlignCenter);
             using var small = Theme.Body(8.5f);
-            TextRenderer.DrawText(g, "Ayarları beğenince Kaydet'e bas", small, new Rectangle(0, mid + Theme.P(12), Width, Theme.P(20)), Theme.Dim, AlignCenter);
+            TextRenderer.DrawText(g, L.T("Ayarları beğenince Kaydet'e bas"), small, new Rectangle(0, mid + Theme.P(12), Width, Theme.P(20)), Theme.Dim, AlignCenter);
             return;
         }
         using var mono = Theme.Mono(8f);
@@ -703,7 +703,7 @@ class CurveView : DarkControl
         var card = new RectangleF(0, 0, Width, Height);
         Theme.Fill(g, Theme.Surface, card, Theme.P(14));
         Theme.Stroke(g, Theme.Line, card, Theme.P(14));
-        Theme.Tracked(g, "TON EĞRİSİ", Theme.Caption, Theme.Dim, Theme.P(16), Theme.P(14), Theme.P(1.6f));
+        Theme.Tracked(g, L.T("TON EĞRİSİ"), Theme.Caption, Theme.Dim, Theme.P(16), Theme.P(14), Theme.P(1.6f));
         var a = RectangleF.FromLTRB(Theme.P(16), Theme.P(42), Width - Theme.P(16), Height - Theme.P(16));
         using (var grid = new Pen(Theme.Line))
             for (int i = 0; i <= 4; i++)
@@ -792,7 +792,7 @@ class PatternView : DarkControl
         Theme.Stroke(g, Theme.Line, card, Theme.P(14));
 
         double b = beforeA.Value;
-        string badge = b > 0.5 ? "ÖNCE" : "SONRA";
+        string badge = L.T(b > 0.5 ? "ÖNCE" : "SONRA");
         using var font = Theme.BodySemi(8f);
         var size = TextRenderer.MeasureText(badge, font);
         var r = new RectangleF(Width - size.Width - Theme.P(34), Theme.P(12), size.Width + Theme.P(22), size.Height + Theme.P(8));
@@ -938,7 +938,7 @@ class MonitorMap : DarkControl
         var card = new RectangleF(0, 0, Width, Height);
         Theme.Fill(g, Theme.Surface, card, Theme.P(14));
         Theme.Stroke(g, Theme.Line, card, Theme.P(14));
-        Theme.Tracked(g, "YERLEŞİM", Theme.Caption, Theme.Dim, Theme.P(16), Theme.P(14), Theme.P(1.6f));
+        Theme.Tracked(g, L.T("YERLEŞİM"), Theme.Caption, Theme.Dim, Theme.P(16), Theme.P(14), Theme.P(1.6f));
 
         var rects = Rects();
         using var big = Theme.DisplayLight(22f);
@@ -968,7 +968,7 @@ static class ConfirmBox
         static int P(float v) => Theme.P(v);
         using var f = new Form
         {
-            Text = "Görüntü ayarı", FormBorderStyle = FormBorderStyle.FixedDialog, MinimizeBox = false, MaximizeBox = false,
+            Text = L.T("Görüntü ayarı"), FormBorderStyle = FormBorderStyle.FixedDialog, MinimizeBox = false, MaximizeBox = false,
             ShowInTaskbar = false, StartPosition = FormStartPosition.CenterParent, BackColor = Theme.Bg, ForeColor = Theme.Text,
             Font = Theme.Body(10f), ClientSize = new Size(P(400), P(214)), Icon = Theme.MakeIcon(16), TopMost = true,
         };
@@ -978,7 +978,7 @@ static class ConfirmBox
         {
             var g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            Theme.Tracked(g, "BU AYAR KORUNSUN MU?", Theme.Caption, Theme.Dim, P(24), P(24), P(1.6f));
+            Theme.Tracked(g, L.T("BU AYAR KORUNSUN MU?"), Theme.Caption, Theme.Dim, P(24), P(24), P(1.6f));
             // Shrink until the mode text fits the dialog.
             float pt = 26f;
             var big = Theme.DisplayLight(pt);
@@ -986,14 +986,14 @@ static class ConfirmBox
             TextRenderer.DrawText(g, change, big, new Rectangle(P(22), P(44), view.Width - P(44), P(50)), Theme.Text, TextFormatFlags.NoPrefix | TextFormatFlags.VerticalCenter);
             big.Dispose();
             using var small = Theme.Body(9f);
-            TextRenderer.DrawText(g, $"{left} sn içinde onaylanmazsa eski ayara dönülür.", small, new Point(P(24), P(100)), Theme.Text2, TextFormatFlags.NoPrefix);
+            TextRenderer.DrawText(g, string.Format(L.T("{0} sn içinde onaylanmazsa eski ayara dönülür."), left), small, new Point(P(24), P(100)), Theme.Text2, TextFormatFlags.NoPrefix);
             // countdown bar
             float w = view.Width - P(48);
             Theme.Fill(g, Theme.Ctl, new RectangleF(P(24), P(126), w, P(3)), P(1.5f));
             Theme.Fill(g, Theme.Accent, new RectangleF(P(24), P(126), w * left / seconds, P(3)), P(1.5f));
         };
-        var keep = new FlatButton { Text = "Koru", Primary = true, Bounds = new Rectangle(P(278), P(156), P(100), P(38)) };
-        var revert = new FlatButton { Text = "Geri al", Ghost = true, Bounds = new Rectangle(P(168), P(156), P(100), P(38)) };
+        var keep = new FlatButton { Text = L.T("Koru"), Primary = true, Bounds = new Rectangle(P(278), P(156), P(100), P(38)) };
+        var revert = new FlatButton { Text = L.T("Geri al"), Ghost = true, Bounds = new Rectangle(P(168), P(156), P(100), P(38)) };
         keep.Click += (_, _) => f.DialogResult = DialogResult.OK;
         revert.Click += (_, _) => f.DialogResult = DialogResult.Cancel;
         using var timer = new System.Windows.Forms.Timer { Interval = 1000 };
@@ -1018,7 +1018,7 @@ static class InputBox
             ShowInTaskbar = false, StartPosition = FormStartPosition.CenterParent, BackColor = Theme.Bg, ForeColor = Theme.Text,
             Font = Theme.Body(10f), ClientSize = new Size(P(360), P(170)), Icon = Theme.MakeIcon(16),
         };
-        var cap = new Caption("PROFİL ADI") { Bounds = new Rectangle(P(22), P(22), P(316), P(18)) };
+        var cap = new Caption(L.T("PROFİL ADI")) { Bounds = new Rectangle(P(22), P(22), P(316), P(18)) };
         var frame = new Panel { Bounds = new Rectangle(P(22), P(46), P(316), P(42)), BackColor = Theme.Surface };
         var box = new TextBox
         {
@@ -1033,8 +1033,8 @@ static class InputBox
         };
         box.GotFocus += (_, _) => frame.Invalidate();
         box.LostFocus += (_, _) => frame.Invalidate();
-        var ok = new FlatButton { Text = "Kaydet", Primary = true, Bounds = new Rectangle(P(238), P(110), P(100), P(38)) };
-        var cancel = new FlatButton { Text = "Vazgeç", Ghost = true, Bounds = new Rectangle(P(128), P(110), P(100), P(38)) };
+        var ok = new FlatButton { Text = L.T("Kaydet"), Primary = true, Bounds = new Rectangle(P(238), P(110), P(100), P(38)) };
+        var cancel = new FlatButton { Text = L.T("Vazgeç"), Ghost = true, Bounds = new Rectangle(P(128), P(110), P(100), P(38)) };
         ok.Click += (_, _) => f.DialogResult = DialogResult.OK;
         cancel.Click += (_, _) => f.DialogResult = DialogResult.Cancel;
         box.KeyDown += (_, e) =>
